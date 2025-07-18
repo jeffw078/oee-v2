@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Sistema de Apontamento OEE{% endblock %}</title>
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <!-- Custom CSS para manter visual do MVP -->
+    <style>
+        :root {
+            --primary-red: #dc3545;
+            --success-green: #28a745;
+            --warning-yellow: #ffc107;
+            --info-blue: #17a2b8;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f8f9fa;
+            margin: 0;
+            padding: 0;
+        }
+        
+        .header-oee {
+            background: linear-gradient(135deg, var(--primary-red), #c82333);
+            color: white;
+            padding: 1rem 0;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .header-oee .container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .logo {
+            font-size: 1.2rem;
+            font-weight: bold;
+            background: white;
+            color: var(--primary-red);
+            padding: 0.5rem 1rem;
+            border-radius: 5px;
+        }
+        
+        .sistema-titulo {
+            font-size: 1.5rem;
+            font-weight: bold;
+            text-align: center;
+            flex-grow: 1;
+        }
+        
+        .header-info {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        
+        .clock {
+            font-size: 1.5rem;
+            font-weight: bold;
+        }
+        
+        .status-conexao {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: var(--success-green);
+            display: inline-block;
+            margin-right: 0.5rem;
+        }
+        
+        .status-conexao.offline {
+            background: var(--primary-red);
+        }
+        
+        .btn-sair {
+            background: rgba(255,255,255,0.2);
+            border: 1px solid rgba(255,255,255,0.3);
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 5px;
+            text-decoration: none;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-sair:hover {
+            background: rgba(255,255,255,0.3);
+            color: white;
+        }
+        
+        .saudacao {
+            text-align: center;
+            background: rgba(0,0,0,0.05);
+            padding: 1.5rem;
+            margin: 2rem 0;
+            border-radius: 10px;
+            font-size: 1.2rem;
+            color: #333;
+        }
+        
+        .btn-modulo {
+            background: var(--primary-red);
+            color: white;
+            border: none;
+            padding: 1.5rem 2rem;
+            font-size: 1.1rem;
+            font-weight: bold;
+            border-radius: 8px;
+            margin: 0.5rem;
+            min-width: 200px;
+            min-height: 80px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        
+        .btn-modulo:hover {
+            background: #c82333;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+        
+        .btn-qualidade {
+            background: var(--success-green);
+            color: white;
+        }
+        
+        .btn-qualidade:hover {
+            background: #218838;
+        }
+        
+        .btn-parada {
+            background: var(--warning-yellow);
+            color: #333;
+        }
+        
+        .btn-parada:hover {
+            background: #e0a800;
+        }
+        
+        .btn-componente {
+            background: var(--primary-red);
+            color: white;
+            border: none;
+            padding: 1rem 1.5rem;
+            font-size: 1rem;
+            font-weight: 500;
+            border-radius: 6px;
+            margin: 0.3rem;
+            min-width: 180px;
+            min-height: 60px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        
+        .btn-componente:hover {
+            background: #c82333;
+            transform: translateY(-1px);
+            box-shadow: 0 3px 10px rgba(0,0,0,0.2);
+        }
+        
+        .soldador-card {
+            background: white;
+            border-radius: 10px;
+            padding: 1.5rem;
+            margin: 1rem;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            transition: all 0.3s ease;
+            cursor: pointer;
+            border: 2px solid transparent;
+        }
+        
+        .soldador-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+            border-color: var(--primary-red);
+        }
+        
+        .soldador-nome {
+            font-size: 1.3rem;
+            font-weight: bold;
+            color: var(--primary-red);
+            text-align: center;
+        }
+        
+        .modal {
+            backdrop-filter: blur(5px);
+        }
+        
+        .modal-content {
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+        
+        .modal-header {
+            background: var(--primary-red);
+            color: white;
+            border-radius: 15px 15px 0 0;
+        }
+        
+        .loading-spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s ease-in-out infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .processo-atual {
+            background: linear-gradient(135deg, var(--info-blue), #138496);
+            color: white;
+            padding: 2rem;
+            border-radius: 15px;
+            margin: 2rem 0;
+            text-align: center;
+        }
+        
+        .tempo-decorrido {
+            font-size: 2rem;
+            font-weight: bold;
+            margin: 1rem 0;
+        }
+        
+        .btn-processo {
+            margin: 0.5rem;
+            padding: 1rem 2rem;
+            font-size: 1.1rem;
+            font-weight: 500;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-finalizar {
+            background: var(--success-green);
+            color: white;
+        }
+        
+        .btn-finalizar:hover {
+            background: #218838;
+            transform: translateY(-2px);
+        }
+        
+        .btn-manutencao {
+            background: #fd7e14;
+            color: white;
+        }
+        
+        .btn-manutencao:hover {
+            background: #e96500;
+        }
+        
+        /* Responsividade para tablets */
+        @media (max-width: 768px) {
+            .header-oee .container {
+                flex-direction: column;
+                gap: 1rem;
+            }
+            
+            .sistema-titulo {
+                font-size: 1.2rem;
+            }
+            
+            .btn-modulo {
+                min-width: 100%;
+                margin: 0.5rem 0;
+            }
+            
+            .btn-componente {
+                min-width: 100%;
+                margin: 0.3rem 0;
+            }
+        }
+    </style>
+    
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <!-- Header igual ao MVP -->
+    <header class="header-oee">
+        <div class="container">
+            <div class="logo">SteelMast</div>
+            <div class="sistema-titulo">Sistema de Apontamento OEE</div>
+            <div class="header-info">
+                <span class="status-conexao" id="status-conexao"></span>
+                <span class="clock" id="clock">00:00:00</span>
+                {% if request.session.soldador_id %}
+                    <a href="{% url 'soldagem:finalizar_turno' %}" class="btn-sair">⬜ SAIR</a>
+                {% endif %}
+            </div>
+        </div>
+    </header>
+    
+    <!-- Conteúdo principal -->
+    <main class="container-fluid">
+        {% block content %}{% endblock %}
+    </main>
+    
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- Script para funcionalidade offline -->
+    <script>
+        // Relógio em tempo real
+        function updateClock() {
+            const now = new Date();
+            const timeString = now.toLocaleTimeString('pt-BR');
+            document.getElementById('clock').textContent = timeString;
+        }
+        
+        setInterval(updateClock, 1000);
+        updateClock();
+        
+        // Sistema de cache offline
+        class OfflineManager {
+            constructor() {
+                this.isOnline = navigator.onLine;
+                this.cache = JSON.parse(localStorage.getItem('oee_cache') || '{}');
+                this.pendingSync = JSON.parse(localStorage.getItem('oee_pending') || '[]');
+                this.init();
+            }
+            
+            init() {
+                window.addEventListener('online', () => this.handleOnline());
+                window.addEventListener('offline', () => this.handleOffline());
+                this.updateConnectionStatus();
+                this.startSyncCheck();
+            }
+            
+            handleOnline() {
+                this.isOnline = true;
+                this.updateConnectionStatus();
+                this.syncPendingData();
+            }
+            
+            handleOffline() {
+                this.isOnline = false;
+                this.updateConnectionStatus();
+            }
+            
+            updateConnectionStatus() {
+                const statusElement = document.getElementById('status-conexao');
+                if (statusElement) {
+                    statusElement.className = this.isOnline ? 'status-conexao' : 'status-conexao offline';
+                }
+            }
+            
+            saveToCache(key, data) {
+                this.cache[key] = data;
+                localStorage.setItem('oee_cache', JSON.stringify(this.cache));
+            }
+            
+            getFromCache(key) {
+                return this.cache[key] || null;
+            }
+            
+            addToPending(data) {
+                this.pendingSync.push({
+                    ...data,
+                    timestamp: new Date().toISOString()
+                });
+                localStorage.setItem('oee_pending', JSON.stringify(this.pendingSync));
+            }
+            
+            async syncPendingData() {
+                if (this.pendingSync.length === 0) return;
+                
+                try {
+                    const response = await fetch('/api/sync/sincronizar_dados/', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': this.getCsrfToken()
+                        },
+                        body: JSON.stringify({
+                            dados_offline: this.pendingSync,
+                            cache: this.cache
+                        })
+                    });
+                    
+                    if (response.ok) {
+                        this.pendingSync = [];
+                        localStorage.setItem('oee_pending', JSON.stringify([]));
+                        console.log('Dados sincronizados com sucesso');
+                    }
+                } catch (error) {
+                    console.error('Erro na sincronização:', error);
+                }
+            }
+            
+            startSyncCheck() {
+                setInterval(() => {
+                    if (this.isOnline) {
+                        this.checkConnectionStatus();
+                    }
+                }, 30000); // Check a cada 30 segundos
+            }
+            
+            async checkConnectionStatus() {
+                try {
+                    const response = await fetch('/api/sync/status_conexao/', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': this.getCsrfToken()
+                        }
+                    });
+                    
+                    if (response.ok) {
+                        const data = await response.json();
+                        this.isOnline = data.conectado;
+                        this.updateConnectionStatus();
+                    }
+                } catch (error) {
+                    this.isOnline = false;
+                    this.updateConnectionStatus();
+                }
+            }
+            
+            getCsrfToken() {
+                return document.querySelector('[name=csrfmiddlewaretoken]')?.value || '';
+            }
+        }
+        
+        // Inicializar sistema offline
+        const offlineManager = new OfflineManager();
+        window.offlineManager = offlineManager;
+        
+        // Função para fazer requests com fallback offline
+        async function makeRequest(url, options = {}) {
+            if (!offlineManager.isOnline) {
+                // Salvar requisição para sincronização posterior
+                offlineManager.addToPending({
+                    url: url,
+                    options: options
+                });
+                
+                // Tentar usar cache
+                const cachedData = offlineManager.getFromCache(url);
+                if (cachedData) {
+                    return { ok: true, json: () => Promise.resolve(cachedData) };
+                }
+                
+                throw new Error('Sem conexão e sem dados em cache');
+            }
+            
+            try {
+                const response = await fetch(url, options);
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    offlineManager.saveToCache(url, data);
+                    return response;
+                }
+                
+                return response;
+            } catch (error) {
+                offlineManager.isOnline = false;
+                offlineManager.updateConnectionStatus();
+                throw error;
+            }
+        }
+        
+        // Substituir fetch global
+        window.makeRequest = makeRequest;
+    </script>
+    
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

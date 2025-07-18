@@ -1,0 +1,114 @@
+{% extends 'base.html' %}
+
+{% block title %}Seleção de Soldador - OEE{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <h2 class="text-center mb-4" style="color: var(--primary-red);">
+                Selecione o Soldador
+            </h2>
+            
+            <div class="row">
+                {% for soldador in soldadores %}
+                <div class="col-md-6 col-lg-4">
+                    <div class="soldador-card" onclick="selecionarSoldador({{ soldador.id }})">
+                        <div class="soldador-nome">{{ soldador.usuario.nome_completo }}</div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para senha -->
+<div class="modal fade" id="modalSenha" tabindex="-1">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Digite sua senha</h5>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="senha" class="form-label">Senha:</label>
+                    <input type="password" class="form-control form-control-lg text-center" 
+                           id="senha" maxlength="10" style="font-size: 1.5rem;">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-danger" onclick="confirmarLogin()">
+                    <span class="loading-spinner" id="spinner" style="display: none;"></span>
+                    Entrar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let soldadorSelecionado = null;
+
+function selecionarSoldador(soldadorId) {
+    soldadorSelecionado = soldadorId;
+    document.getElementById('senha').value = '';
+    const modal = new bootstrap.Modal(document.getElementById('modalSenha'));
+    modal.show();
+    
+    // Focar no campo senha
+    setTimeout(() => {
+        document.getElementById('senha').focus();
+    }, 500);
+}
+
+function confirmarLogin() {
+    const senha = document.getElementById('senha').value;
+    
+    if (!senha.trim()) {
+        alert('Digite a senha');
+        return;
+    }
+    
+    // Mostrar loading
+    document.getElementById('spinner').style.display = 'inline-block';
+    
+    // Fazer login
+    makeRequest('/login_soldador/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            soldador_id: soldadorSelecionado,
+            senha: senha
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            window.location.href = data.redirect;
+        } else {
+            alert(data.message || 'Erro no login');
+            document.getElementById('spinner').style.display = 'none';
+        }
+    })
+    .catch(error => {
+        console.error('Erro:', error);
+        alert('Erro de conexão. Dados salvos offline.');
+        document.getElementById('spinner').style.display = 'none';
+    });
+}
+
+// Enter para confirmar
+document.getElementById('senha').addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') {
+        confirmarLogin();
+    }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,196 @@
+{% extends 'base.html' %}
+
+{% block title %}Painel Administrativo - OEE{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <!-- Sidebar -->
+        <nav class="col-md-2 d-none d-md-block bg-light sidebar">
+            <div class="sidebar-sticky">
+                <h5 class="sidebar-heading">Administração</h5>
+                <ul class="nav flex-column">
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'core:painel_admin' %}">
+                            📊 Dashboard
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'core:gerenciar_soldadores' %}">
+                            👷 Soldadores
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'core:gerenciar_componentes' %}">
+                            🔧 Componentes
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'core:gerenciar_tipos_parada' %}">
+                            ⏸️ Tipos de Parada
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'core:editar_apontamentos' %}">
+                            ✏️ Editar Apontamentos
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'core:logs_auditoria' %}">
+                            📋 Logs de Auditoria
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'relatorios:dashboard_principal' %}">
+                            📈 Relatórios
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </nav>
+
+        <!-- Conteúdo principal -->
+        <main class="col-md-10 ms-sm-auto px-4">
+            <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+                <h1 class="h2">Painel Administrativo</h1>
+            </div>
+
+            <!-- Cards de estatísticas -->
+            <div class="row mb-4">
+                <div class="col-md-3">
+                    <div class="card text-white bg-primary">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <h4>{{ total_soldadores }}</h4>
+                                    <p>Soldadores Ativos</p>
+                                </div>
+                                <div class="align-self-center">
+                                    <i class="fas fa-users fa-2x"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-3">
+                    <div class="card text-white bg-success">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <h4>{{ total_apontamentos }}</h4>
+                                    <p>Apontamentos</p>
+                                </div>
+                                <div class="align-self-center">
+                                    <i class="fas fa-chart-line fa-2x"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-3">
+                    <div class="card text-white bg-warning">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <h4>{{ total_pedidos }}</h4>
+                                    <p>Pedidos</p>
+                                </div>
+                                <div class="align-self-center">
+                                    <i class="fas fa-clipboard-list fa-2x"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-3">
+                    <div class="card text-white bg-info">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <h4>100%</h4>
+                                    <p>Sistema Online</p>
+                                </div>
+                                <div class="align-self-center">
+                                    <i class="fas fa-server fa-2x"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Apontamentos recentes -->
+            <div class="row">
+                <div class="col-md-8">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5>Apontamentos Recentes</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-striped">
+                                    <thead>
+                                        <tr>
+                                            <th>Soldador</th>
+                                            <th>Componente</th>
+                                            <th>Pedido</th>
+                                            <th>Tempo Real</th>
+                                            <th>Eficiência</th>
+                                            <th>Data</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for apt in apontamentos_recentes %}
+                                        <tr>
+                                            <td>{{ apt.soldador.usuario.nome_completo }}</td>
+                                            <td>{{ apt.componente.nome }}</td>
+                                            <td>{{ apt.pedido.numero }}</td>
+                                            <td>{{ apt.tempo_real|floatformat:1 }}min</td>
+                                            <td>
+                                                {% if apt.eficiencia_calculada %}
+                                                    <span class="badge bg-{% if apt.eficiencia_calculada >= 100 %}success{% elif apt.eficiencia_calculada >= 80 %}warning{% else %}danger{% endif %}">
+                                                        {{ apt.eficiencia_calculada|floatformat:1 }}%
+                                                    </span>
+                                                {% else %}
+                                                    -
+                                                {% endif %}
+                                            </td>
+                                            <td>{{ apt.inicio_processo|date:"d/m/Y H:i" }}</td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-4">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5>Logs de Auditoria</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="list-group">
+                                {% for log in logs_recentes %}
+                                <div class="list-group-item">
+                                    <div class="d-flex w-100 justify-content-between">
+                                        <h6 class="mb-1">{{ log.acao }}</h6>
+                                        <small>{{ log.timestamp|date:"H:i" }}</small>
+                                    </div>
+                                    <p class="mb-1">{{ log.usuario.nome_completo }}</p>
+                                    <small>{{ log.tabela_afetada }}</small>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+</div>
+{% endblock %}

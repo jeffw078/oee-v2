@@ -1,0 +1,375 @@
+{% extends 'base.html' %}
+
+{% block title %}Dashboard OEE - Relatórios{% endblock %}
+
+{% block extra_css %}
+<style>
+    .card-oee {
+        border: none;
+        border-radius: 15px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        transition: all 0.3s ease;
+    }
+    
+    .card-oee:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+    }
+    
+    .display-4 {
+        font-size: 2.5rem;
+        font-weight: bold;
+    }
+    
+    .progress-custom {
+        height: 10px;
+        border-radius: 10px;
+    }
+    
+    .chart-container {
+        position: relative;
+        height: 400px;
+        margin: 20px 0;
+    }
+    
+    .indicator-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 15px;
+        padding: 2rem;
+        margin: 1rem 0;
+    }
+    
+    .indicator-value {
+        font-size: 3rem;
+        font-weight: bold;
+        margin-bottom: 0.5rem;
+    }
+    
+    .indicator-label {
+        font-size: 1.2rem;
+        opacity: 0.9;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <h1 class="display-4 text-center" style="color: var(--primary-red);">
+                Dashboard OEE - {{ data_referencia|date:"d/m/Y" }}
+            </h1>
+            <p class="text-center text-muted">
+                Indicadores de Eficiência Geral dos Equipamentos
+            </p>
+        </div>
+    </div>
+    
+    <!-- Cards principais de OEE -->
+    <div class="row mb-5">
+        <div class="col-lg-3 col-md-6 mb-4">
+            <div class="card card-oee border-primary">
+                <div class="card-body text-center">
+                    <div class="display-4 text-primary">{{ oee_hoje.utilizacao }}%</div>
+                    <h5 class="card-title text-primary">UTILIZAÇÃO</h5>
+                    <p class="card-text small text-muted">Horas trabalhadas / Horas disponíveis</p>
+                    <div class="progress progress-custom">
+                        <div class="progress-bar bg-primary" style="width: {{ oee_hoje.utilizacao }}%"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-3 col-md-6 mb-4">
+            <div class="card card-oee border-success">
+                <div class="card-body text-center">
+                    <div class="display-4 text-success">{{ oee_hoje.eficiencia }}%</div>
+                    <h5 class="card-title text-success">EFICIÊNCIA</h5>
+                    <p class="card-text small text-muted">Tempo padrão / Tempo real</p>
+                    <div class="progress progress-custom">
+                        <div class="progress-bar bg-success" style="width: {{ oee_hoje.eficiencia }}%"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-3 col-md-6 mb-4">
+            <div class="card card-oee border-warning">
+                <div class="card-body text-center">
+                    <div class="display-4 text-warning">{{ oee_hoje.qualidade }}%</div>
+                    <h5 class="card-title text-warning">QUALIDADE</h5>
+                    <p class="card-text small text-muted">100% - % de defeitos</p>
+                    <div class="progress progress-custom">
+                        <div class="progress-bar bg-warning" style="width: {{ oee_hoje.qualidade }}%"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-3 col-md-6 mb-4">
+            <div class="card card-oee border-danger">
+                <div class="card-body text-center">
+                    <div class="display-4 text-danger">{{ oee_hoje.oee }}%</div>
+                    <h5 class="card-title text-danger">OEE FINAL</h5>
+                    <p class="card-text small text-muted">Utilização × Eficiência × Qualidade</p>
+                    <div class="progress progress-custom">
+                        <div class="progress-bar bg-danger" style="width: {{ oee_hoje.oee }}%"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Indicadores complementares -->
+    <div class="row mb-5">
+        <div class="col-md-2">
+            <div class="indicator-card">
+                <div class="indicator-value">{{ indicadores.total_apontamentos }}</div>
+                <div class="indicator-label">Apontamentos</div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="indicator-card">
+                <div class="indicator-value">{{ indicadores.total_defeitos }}</div>
+                <div class="indicator-label">Defeitos</div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="indicator-card">
+                <div class="indicator-value">{{ indicadores.total_paradas }}</div>
+                <div class="indicator-label">Paradas</div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="indicator-card">
+                <div class="indicator-value">{{ indicadores.soldadores_ativos }}</div>
+                <div class="indicator-label">Soldadores</div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="indicator-card">
+                <div class="indicator-value">{{ indicadores.modulos_soldados }}</div>
+                <div class="indicator-label">Módulos</div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="indicator-card">
+                <div class="indicator-value">{{ oee_hoje.detalhes.horas_trabalhadas }}h</div>
+                <div class="indicator-label">Horas Trabalhadas</div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Gráficos -->
+    <div class="row">
+        <!-- Gráfico OEE Últimos 7 Dias -->
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5>OEE - Últimos 7 Dias</h5>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container">
+                        <canvas id="grafico-oee-historico"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Gráfico Paradas por Categoria -->
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5>Paradas por Categoria</h5>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container">
+                        <canvas id="grafico-paradas-categoria"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Links para relatórios detalhados -->
+    <div class="row mt-5">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5>Relatórios Detalhados</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-3">
+                            <a href="{% url 'relatorios:relatorio_oee_detalhado' %}" class="btn btn-primary btn-lg w-100 mb-3">
+                                📊 OEE Detalhado
+                            </a>
+                        </div>
+                        <div class="col-md-3">
+                            <a href="{% url 'relatorios:pontos_melhoria' %}" class="btn btn-warning btn-lg w-100 mb-3">
+                                🎯 Pontos de Melhoria
+                            </a>
+                        </div>
+                        <div class="col-md-3">
+                            <a href="{% url 'relatorios:relatorio_paradas' %}" class="btn btn-danger btn-lg w-100 mb-3">
+                                ⏸️ Relatório de Paradas
+                            </a>
+                        </div>
+                        <div class="col-md-3">
+                            <a href="{% url 'relatorios:utilizacao_turnos' %}" class="btn btn-success btn-lg w-100 mb-3">
+                                🕐 Utilização por Turnos
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+// Gráfico OEE Histórico
+async function carregarGraficoOEE() {
+    try {
+        const response = await fetch('/relatorios/api/oee_historico/?periodo=7');
+        const data = await response.json();
+        
+        if (data.success) {
+            const ctx = document.getElementById('grafico-oee-historico').getContext('2d');
+            
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: data.dados.map(d => d.data),
+                    datasets: [
+                        {
+                            label: 'OEE Final',
+                            data: data.dados.map(d => d.oee),
+                            borderColor: '#dc3545',
+                            backgroundColor: 'rgba(220, 53, 69, 0.1)',
+                            borderWidth: 3,
+                            fill: true,
+                            tension: 0.4
+                        },
+                        {
+                            label: 'Utilização',
+                            data: data.dados.map(d => d.utilizacao),
+                            borderColor: '#007bff',
+                            backgroundColor: 'rgba(0, 123, 255, 0.1)',
+                            borderWidth: 2,
+                            fill: false
+                        },
+                        {
+                            label: 'Eficiência',
+                            data: data.dados.map(d => d.eficiencia),
+                            borderColor: '#28a745',
+                            backgroundColor: 'rgba(40, 167, 69, 0.1)',
+                            borderWidth: 2,
+                            fill: false
+                        },
+                        {
+                            label: 'Qualidade',
+                            data: data.dados.map(d => d.qualidade),
+                            borderColor: '#ffc107',
+                            backgroundColor: 'rgba(255, 193, 7, 0.1)',
+                            borderWidth: 2,
+                            fill: false
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                        },
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false,
+                            callbacks: {
+                                label: function(context) {
+                                    return context.dataset.label + ': ' + context.parsed.y.toFixed(1) + '%';
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 100,
+                            ticks: {
+                                callback: function(value) {
+                                    return value + '%';
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+    } catch (error) {
+        console.error('Erro ao carregar gráfico OEE:', error);
+    }
+}
+
+// Gráfico Paradas por Categoria
+async function carregarGraficoParadas() {
+    try {
+        const response = await fetch('/relatorios/api/paradas_categoria/?periodo=7');
+        const data = await response.json();
+        
+        if (data.success) {
+            const ctx = document.getElementById('grafico-paradas-categoria').getContext('2d');
+            
+            new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: data.dados.labels,
+                    datasets: [{
+                        data: data.dados.valores,
+                        backgroundColor: data.dados.cores,
+                        borderWidth: 2,
+                        borderColor: '#fff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'right',
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const label = context.label || '';
+                                    const value = context.parsed;
+                                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                    const percentage = ((value / total) * 100).toFixed(1);
+                                    return label + ': ' + value.toFixed(1) + 'min (' + percentage + '%)';
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+    } catch (error) {
+        console.error('Erro ao carregar gráfico de paradas:', error);
+    }
+}
+
+// Carregar gráficos
+document.addEventListener('DOMContentLoaded', function() {
+    carregarGraficoOEE();
+    carregarGraficoParadas();
+});
+</script>
+{% endblock %}
+

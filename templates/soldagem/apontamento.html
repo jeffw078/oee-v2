@@ -1,0 +1,423 @@
+{% extends 'base.html' %}
+
+{% block title %}Apontamento - {{ soldador.usuario.nome_completo }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Saudação com relógio -->
+    <div class="saudacao">
+        <h3>{{ saudacao }}, {{ soldador.usuario.nome_completo }}!</h3>
+        <div class="row mt-3">
+            <div class="col-md-6">
+                <strong>Data:</strong> {{ now|date:"d/m/Y" }}
+            </div>
+            <div class="col-md-6">
+                <strong>Horário:</strong> <span id="hora-atual">{{ now|date:"H:i:s" }}</span>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Informações do pedido atual -->
+    <div class="row mb-4" id="info-pedido" style="display: none;">
+        <div class="col-md-12">
+            <div class="alert alert-info text-center">
+                <strong>Pedido: <span id="pedido-numero"></span> | Poste/Tubo: <span id="poste-numero"></span></strong>
+                <button class="btn btn-success btn-sm ms-3" id="btn-item-finalizado" style="display: none;">
+                    ✓ Item Finalizado
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Processo atual (quando há componente em andamento) -->
+    {% if apontamento_atual %}
+    <div class="processo-atual">
+        <h4>Soldando: {{ apontamento_atual.componente.nome }}</h4>
+        <div class="tempo-decorrido" id="tempo-decorrido">00:00:00</div>
+        <p>Tempo Padrão: {{ apontamento_atual.tempo_padrao }}min</p>
+        
+        <div class="mt-4">
+            <button class="btn btn-processo btn-finalizar" onclick="finalizarComponente({{ apontamento_atual.id }})">
+                ✓ ITEM FINALIZADO
+            </button>
+            <button class="btn btn-processo btn-qualidade" onclick="abrirQualidade()">
+                QUALIDADE
+            </button>
+            <button class="btn btn-processo btn-manutencao" onclick="abrirManutencao()">
+                MANUTENÇÃO
+            </button>
+            <button class="btn btn-processo btn-parada" onclick="abrirParadas()">
+                PARADAS
+            </button>
+        </div>
+    </div>
+    {% else %}
+    <!-- Menu principal - igual ao MVP -->
+    <div class="row justify-content-center mt-4">
+        <div class="col-md-8">
+            <!-- Módulos principais -->
+            <div class="row mb-4">
+                {% for modulo in modulos %}
+                <div class="col-md-6 col-lg-3 mb-3">
+                    <button class="btn btn-modulo w-100" onclick="selecionarModulo({{ modulo.id }}, '{{ modulo.nome }}')">
+                        {{ modulo.nome }}
+                    </button>
+                </div>
+                {% endfor %}
+            </div>
+            
+            <!-- Botões de ação -->
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <button class="btn btn-qualidade w-100" onclick="abrirQualidade()">
+                        QUALIDADE
+                    </button>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <button class="btn btn-parada w-100" onclick="abrirParadas()">
+                        PARADAS
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Botão finalizar turno -->
+            <div class="row mt-4">
+                <div class="col-md-12">
+                    <button class="btn btn-outline-danger w-100" onclick="finalizarTurno()">
+                        FINALIZAR TURNO
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Modal para dados do pedido -->
+<div class="modal fade" id="modalPedido" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Dados do Pedido</h5>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="numero-pedido" class="form-label">Número do Pedido:</label>
+                    <input type="text" class="form-control" id="numero-pedido" required>
+                </div>
+                <div class="mb-3">
+                    <label for="numero-poste" class="form-label">Número do Poste/Tubo:</label>
+                    <input type="text" class="form-control" id="numero-poste" required>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-danger" onclick="confirmarPedido()">Confirmar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para seleção de componentes -->
+<div class="modal fade" id="modalComponentes" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Componentes do <span id="modulo-nome"></span></h5>
+            </div>
+            <div class="modal-body">
+                <div class="row" id="lista-componentes">
+                    <!-- Componentes serão carregados aqui -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Voltar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para diâmetro -->
+<div class="modal fade" id="modalDiametro" tabindex="-1">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Diâmetro do Tubo</h5>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="diametro" class="form-label">Diâmetro (mm):</label>
+                    <input type="number" class="form-control form-control-lg text-center" 
+                           id="diametro" min="1" max="1000" style="font-size: 1.5rem;">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-danger" onclick="confirmarDiametro()">Confirmar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let moduloAtual = null;
+let componenteSelecionado = null;
+let timerInterval = null;
+
+// Atualizar hora atual
+function atualizarHora() {
+    const now = new Date();
+    document.getElementById('hora-atual').textContent = now.toLocaleTimeString('pt-BR');
+}
+
+setInterval(atualizarHora, 1000);
+
+// Timer para processo atual
+{% if apontamento_atual %}
+function iniciarTimer() {
+    const inicioProcesso = new Date('{{ apontamento_atual.inicio_processo|date:"c" }}');
+    
+    timerInterval = setInterval(() => {
+        const agora = new Date();
+        const diff = agora - inicioProcesso;
+        
+        const horas = Math.floor(diff / (1000 * 60 * 60));
+        const minutos = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+        const segundos = Math.floor((diff % (1000 * 60)) / 1000);
+        
+        document.getElementById('tempo-decorrido').textContent = 
+            `${horas.toString().padStart(2, '0')}:${minutos.toString().padStart(2, '0')}:${segundos.toString().padStart(2, '0')}`;
+    }, 1000);
+}
+
+iniciarTimer();
+{% endif %}
+
+function selecionarModulo(moduloId, moduloNome) {
+    moduloAtual = moduloId;
+    document.getElementById('modulo-nome').textContent = moduloNome;
+    
+    // Mostrar modal de pedido
+    const modal = new bootstrap.Modal(document.getElementById('modalPedido'));
+    modal.show();
+    
+    setTimeout(() => {
+        document.getElementById('numero-pedido').focus();
+    }, 500);
+}
+
+function confirmarPedido() {
+    const pedido = document.getElementById('numero-pedido').value;
+    const poste = document.getElementById('numero-poste').value;
+    
+    if (!pedido.trim() || !poste.trim()) {
+        alert('Preencha todos os campos');
+        return;
+    }
+    
+    // Fechar modal atual
+    bootstrap.Modal.getInstance(document.getElementById('modalPedido')).hide();
+    
+    // Mostrar informações do pedido
+    document.getElementById('pedido-numero').textContent = pedido;
+    document.getElementById('poste-numero').textContent = poste;
+    document.getElementById('info-pedido').style.display = 'block';
+    
+    // Carregar componentes
+    carregarComponentes(pedido, poste);
+}
+
+function carregarComponentes(pedido, poste) {
+    makeRequest('/iniciar_modulo/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            modulo_id: moduloAtual,
+            pedido: pedido,
+            poste: poste
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Preencher lista de componentes
+            const lista = document.getElementById('lista-componentes');
+            lista.innerHTML = '';
+            
+            data.componentes.forEach(comp => {
+                const col = document.createElement('div');
+                col.className = 'col-md-6 col-lg-4 mb-3';
+                
+                const tempoTexto = comp.considera_diametro ? 
+                    '(Diâmetro do tubo)' : 
+                    `(${comp.tempo_padrao}min)`;
+                
+                col.innerHTML = `
+                    <button class="btn btn-componente w-100" onclick="selecionarComponente(${comp.id}, '${comp.nome}', ${comp.considera_diametro})">
+                        ${comp.nome}<br>
+                        <small>${tempoTexto}</small>
+                    </button>
+                `;
+                
+                lista.appendChild(col);
+            });
+            
+            // Mostrar modal de componentes
+            const modal = new bootstrap.Modal(document.getElementById('modalComponentes'));
+            modal.show();
+        } else {
+            alert(data.message || 'Erro ao carregar componentes');
+        }
+    })
+    .catch(error => {
+        console.error('Erro:', error);
+        alert('Erro de conexão. Tente novamente.');
+    });
+}
+
+function selecionarComponente(componenteId, componenteNome, consideraDiametro) {
+    componenteSelecionado = componenteId;
+    
+    // Fechar modal de componentes
+    bootstrap.Modal.getInstance(document.getElementById('modalComponentes')).hide();
+    
+    if (consideraDiametro) {
+        // Mostrar modal de diâmetro
+        const modal = new bootstrap.Modal(document.getElementById('modalDiametro'));
+        modal.show();
+        
+        setTimeout(() => {
+            document.getElementById('diametro').focus();
+        }, 500);
+    } else {
+        iniciarComponente(componenteId, null);
+    }
+}
+
+function confirmarDiametro() {
+    const diametro = document.getElementById('diametro').value;
+    
+    if (!diametro || diametro <= 0) {
+        alert('Digite um diâmetro válido');
+        return;
+    }
+    
+    // Fechar modal
+    bootstrap.Modal.getInstance(document.getElementById('modalDiametro')).hide();
+    
+    iniciarComponente(componenteSelecionado, diametro);
+}
+
+function iniciarComponente(componenteId, diametro) {
+    makeRequest('/iniciar_componente/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            componente_id: componenteId,
+            diametro: diametro
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Recarregar página para mostrar processo atual
+            location.reload();
+        } else {
+            alert(data.message || 'Erro ao iniciar componente');
+        }
+    })
+    .catch(error => {
+        console.error('Erro:', error);
+        alert('Erro de conexão. Dados salvos offline.');
+        
+        // Salvar offline
+        offlineManager.addToPending({
+            action: 'iniciar_componente',
+            data: {
+                componente_id: componenteId,
+                diametro: diametro
+            }
+        });
+    });
+}
+
+function finalizarComponente(apontamentoId) {
+    if (!confirm('Finalizar este componente?')) return;
+    
+    makeRequest('/finalizar_componente/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            apontamento_id: apontamentoId
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert(`Componente finalizado!\nTempo real: ${data.tempo_real}min\nEficiência: ${data.eficiencia}%`);
+            location.reload();
+        } else {
+            alert(data.message || 'Erro ao finalizar componente');
+        }
+    })
+    .catch(error => {
+        console.error('Erro:', error);
+        alert('Erro de conexão. Dados salvos offline.');
+        
+        // Salvar offline
+        offlineManager.addToPending({
+            action: 'finalizar_componente',
+            data: {
+                apontamento_id: apontamentoId
+            }
+        });
+    });
+}
+
+function abrirQualidade() {
+    alert('Funcionalidade de Qualidade será implementada');
+}
+
+function abrirManutencao() {
+    alert('Funcionalidade de Manutenção será implementada');
+}
+
+function abrirParadas() {
+    alert('Funcionalidade de Paradas será implementada');
+}
+
+function finalizarTurno() {
+    if (confirm('Deseja finalizar o turno?')) {
+        window.location.href = '/finalizar_turno/';
+    }
+}
+
+// Enter nos campos
+document.getElementById('numero-pedido').addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') {
+        document.getElementById('numero-poste').focus();
+    }
+});
+
+document.getElementById('numero-poste').addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') {
+        confirmarPedido();
+    }
+});
+
+document.getElementById('diametro').addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') {
+        confirmarDiametro();
+    }
+});
+</script>
+{% endblock %}

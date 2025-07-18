@@ -1,0 +1,43 @@
+{% extends 'base.html' %}
+
+{% block title %}Painel de Manutenção{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="saudacao">
+        <h3>Painel de Manutenção - {{ soldador.usuario.nome_completo }}</h3>
+        <p>Registre paradas para manutenção de equipamentos</p>
+    </div>
+    
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h5>🔧 Manutenção de Equipamentos</h5>
+                </div>
+                <div class="card-body text-center">
+                    <p class="mb-4">Funcionalidade em desenvolvimento</p>
+                    <p>Em breve você poderá registrar:</p>
+                    <ul class="list-unstyled">
+                        <li>• Falhas de equipamento</li>
+                        <li>• Manutenção preventiva</li>
+                        <li>• Troca de eletrodos</li>
+                        <li>• Regulagem de soldagem</li>
+                        <li>• Limpeza de equipamentos</li>
+                        <li>• Outras atividades de manutenção</li>
+                    </ul>
+                </div>
+                <div class="card-footer">
+                    <button class="btn btn-secondary" onclick="voltar()">⬅ Voltar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function voltar() {
+    window.location.href = '/apontamento/';
+}
+</script>
+{% endblock %}

@@ -11,4 +11,7 @@ urlpatterns = [
     path('iniciar_componente/', views.iniciar_componente, name='iniciar_componente'),
     path('finalizar_componente/', views.finalizar_componente, name='finalizar_componente'),
     path('finalizar_turno/', views.finalizar_turno, name='finalizar_turno'),
+    path('painel_qualidade/', views.painel_qualidade, name='painel_qualidade'),
+    path('painel_paradas/', views.painel_paradas, name='painel_paradas'),
+    path('painel_manutencao/', views.painel_manutencao, name='painel_manutencao'),
 ]

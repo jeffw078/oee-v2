@@ -22,14 +22,11 @@
         <div class="col-md-12">
             <div class="alert alert-info text-center">
                 <strong>Pedido: <span id="pedido-numero"></span> | Poste/Tubo: <span id="poste-numero"></span></strong>
-                <button class="btn btn-success btn-sm ms-3" id="btn-item-finalizado" style="display: none;">
-                    ✓ Item Finalizado
-                </button>
             </div>
         </div>
     </div>
     
-    <!-- Processo atual (quando há componente em andamento) -->
+    <!-- Processo atual -->
     {% if apontamento_atual %}
     <div class="processo-atual">
         <h4>Soldando: {{ apontamento_atual.componente.nome }}</h4>
@@ -52,7 +49,7 @@
         </div>
     </div>
     {% else %}
-    <!-- Menu principal - igual ao MVP -->
+    <!-- Menu principal -->
     <div class="row justify-content-center mt-4">
         <div class="col-md-8">
             <!-- Módulos principais -->
@@ -68,14 +65,19 @@
             
             <!-- Botões de ação -->
             <div class="row">
-                <div class="col-md-6 mb-3">
+                <div class="col-md-4 mb-3">
                     <button class="btn btn-qualidade w-100" onclick="abrirQualidade()">
                         QUALIDADE
                     </button>
                 </div>
-                <div class="col-md-6 mb-3">
+                <div class="col-md-4 mb-3">
                     <button class="btn btn-parada w-100" onclick="abrirParadas()">
                         PARADAS
+                    </button>
+                </div>
+                <div class="col-md-4 mb-3">
+                    <button class="btn btn-manutencao w-100" onclick="abrirManutencao()">
+                        MANUTENÇÃO
                     </button>
                 </div>
             </div>
@@ -159,6 +161,8 @@
     </div>
 </div>
 
+{% csrf_token %}
+
 {% endblock %}
 
 {% block extra_js %}
@@ -200,7 +204,6 @@ function selecionarModulo(moduloId, moduloNome) {
     moduloAtual = moduloId;
     document.getElementById('modulo-nome').textContent = moduloNome;
     
-    // Mostrar modal de pedido
     const modal = new bootstrap.Modal(document.getElementById('modalPedido'));
     modal.show();
     
@@ -218,76 +221,80 @@ function confirmarPedido() {
         return;
     }
     
-    // Fechar modal atual
     bootstrap.Modal.getInstance(document.getElementById('modalPedido')).hide();
     
-    // Mostrar informações do pedido
     document.getElementById('pedido-numero').textContent = pedido;
     document.getElementById('poste-numero').textContent = poste;
     document.getElementById('info-pedido').style.display = 'block';
     
-    // Carregar componentes
     carregarComponentes(pedido, poste);
 }
 
 function carregarComponentes(pedido, poste) {
-    makeRequest('/iniciar_modulo/', {
+    const dados = {
+        modulo_id: moduloAtual,
+        pedido: pedido,
+        poste: poste
+    };
+    
+    fetch('/iniciar_modulo/', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
+            'X-CSRFToken': getCsrfToken()
         },
-        body: JSON.stringify({
-            modulo_id: moduloAtual,
-            pedido: pedido,
-            poste: poste
-        })
+        body: JSON.stringify(dados)
     })
-    .then(response => response.json())
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        return response.json();
+    })
     .then(data => {
         if (data.success) {
-            // Preencher lista de componentes
             const lista = document.getElementById('lista-componentes');
             lista.innerHTML = '';
             
-            data.componentes.forEach(comp => {
-                const col = document.createElement('div');
-                col.className = 'col-md-6 col-lg-4 mb-3';
+            if (data.componentes && data.componentes.length > 0) {
+                data.componentes.forEach(comp => {
+                    const col = document.createElement('div');
+                    col.className = 'col-md-6 col-lg-4 mb-3';
+                    
+                    const tempoTexto = comp.considera_diametro ? 
+                        '(Diâmetro do tubo)' : 
+                        `(${comp.tempo_padrao}min)`;
+                    
+                    col.innerHTML = `
+                        <button class="btn btn-componente w-100" onclick="selecionarComponente(${comp.id}, '${comp.nome}', ${comp.considera_diametro})">
+                            ${comp.nome}<br>
+                            <small>${tempoTexto}</small>
+                        </button>
+                    `;
+                    
+                    lista.appendChild(col);
+                });
                 
-                const tempoTexto = comp.considera_diametro ? 
-                    '(Diâmetro do tubo)' : 
-                    `(${comp.tempo_padrao}min)`;
-                
-                col.innerHTML = `
-                    <button class="btn btn-componente w-100" onclick="selecionarComponente(${comp.id}, '${comp.nome}', ${comp.considera_diametro})">
-                        ${comp.nome}<br>
-                        <small>${tempoTexto}</small>
-                    </button>
-                `;
-                
-                lista.appendChild(col);
-            });
-            
-            // Mostrar modal de componentes
-            const modal = new bootstrap.Modal(document.getElementById('modalComponentes'));
-            modal.show();
+                const modal = new bootstrap.Modal(document.getElementById('modalComponentes'));
+                modal.show();
+            } else {
+                alert('Nenhum componente encontrado');
+            }
         } else {
             alert(data.message || 'Erro ao carregar componentes');
         }
     })
     .catch(error => {
-        console.error('Erro:', error);
-        alert('Erro de conexão. Tente novamente.');
+        alert(`Erro de conexão: ${error.message}`);
     });
 }
 
 function selecionarComponente(componenteId, componenteNome, consideraDiametro) {
     componenteSelecionado = componenteId;
     
-    // Fechar modal de componentes
     bootstrap.Modal.getInstance(document.getElementById('modalComponentes')).hide();
     
     if (consideraDiametro) {
-        // Mostrar modal de diâmetro
         const modal = new bootstrap.Modal(document.getElementById('modalDiametro'));
         modal.show();
         
@@ -307,60 +314,65 @@ function confirmarDiametro() {
         return;
     }
     
-    // Fechar modal
     bootstrap.Modal.getInstance(document.getElementById('modalDiametro')).hide();
     
     iniciarComponente(componenteSelecionado, diametro);
 }
 
 function iniciarComponente(componenteId, diametro) {
-    makeRequest('/iniciar_componente/', {
+    const dados = {
+        componente_id: componenteId,
+        diametro: diametro
+    };
+    
+    fetch('/iniciar_componente/', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
+            'X-CSRFToken': getCsrfToken()
         },
-        body: JSON.stringify({
-            componente_id: componenteId,
-            diametro: diametro
-        })
+        body: JSON.stringify(dados)
     })
-    .then(response => response.json())
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+        }
+        return response.json();
+    })
     .then(data => {
         if (data.success) {
-            // Recarregar página para mostrar processo atual
+            alert(`Componente iniciado: ${data.componente_nome}`);
             location.reload();
         } else {
             alert(data.message || 'Erro ao iniciar componente');
         }
     })
     .catch(error => {
-        console.error('Erro:', error);
-        alert('Erro de conexão. Dados salvos offline.');
-        
-        // Salvar offline
-        offlineManager.addToPending({
-            action: 'iniciar_componente',
-            data: {
-                componente_id: componenteId,
-                diametro: diametro
-            }
-        });
+        alert(`Erro: ${error.message}`);
     });
 }
 
 function finalizarComponente(apontamentoId) {
     if (!confirm('Finalizar este componente?')) return;
     
-    makeRequest('/finalizar_componente/', {
+    const dados = {
+        apontamento_id: apontamentoId
+    };
+    
+    fetch('/finalizar_componente/', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
+            'X-CSRFToken': getCsrfToken()
         },
-        body: JSON.stringify({
-            apontamento_id: apontamentoId
-        })
+        body: JSON.stringify(dados)
     })
-    .then(response => response.json())
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+        }
+        return response.json();
+    })
     .then(data => {
         if (data.success) {
             alert(`Componente finalizado!\nTempo real: ${data.tempo_real}min\nEficiência: ${data.eficiencia}%`);
@@ -370,35 +382,31 @@ function finalizarComponente(apontamentoId) {
         }
     })
     .catch(error => {
-        console.error('Erro:', error);
-        alert('Erro de conexão. Dados salvos offline.');
-        
-        // Salvar offline
-        offlineManager.addToPending({
-            action: 'finalizar_componente',
-            data: {
-                apontamento_id: apontamentoId
-            }
-        });
+        alert(`Erro: ${error.message}`);
     });
 }
 
 function abrirQualidade() {
-    alert('Funcionalidade de Qualidade será implementada');
-}
-
-function abrirManutencao() {
-    alert('Funcionalidade de Manutenção será implementada');
+    window.location.href = '/painel_qualidade/';
 }
 
 function abrirParadas() {
-    alert('Funcionalidade de Paradas será implementada');
+    window.location.href = '/painel_paradas/';
+}
+
+function abrirManutencao() {
+    window.location.href = '/painel_manutencao/';
 }
 
 function finalizarTurno() {
     if (confirm('Deseja finalizar o turno?')) {
         window.location.href = '/finalizar_turno/';
     }
+}
+
+function getCsrfToken() {
+    const token = document.querySelector('[name=csrfmiddlewaretoken]')?.value;
+    return token || '';
 }
 
 // Enter nos campos

@@ -13,8 +13,15 @@
             <div class="row">
                 {% for soldador in soldadores %}
                 <div class="col-md-6 col-lg-4">
-                    <div class="soldador-card" onclick="selecionarSoldador({{ soldador.id }})">
+                    <div class="soldador-card" onclick="selecionarSoldador({{ soldador.id }}, '{{ soldador.usuario.nome_completo }}')">
                         <div class="soldador-nome">{{ soldador.usuario.nome_completo }}</div>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="col-12">
+                    <div class="alert alert-warning text-center">
+                        <h4>⚠️ Nenhum soldador encontrado!</h4>
+                        <p>Execute: <code>python criar_dados_iniciais.py</code></p>
                     </div>
                 </div>
                 {% endfor %}
@@ -32,15 +39,15 @@
             </div>
             <div class="modal-body">
                 <div class="mb-3">
-                    <label for="senha" class="form-label">Senha:</label>
+                    <label for="senha" class="form-label">Soldador: <strong><span id="soldador-nome"></span></strong></label>
                     <input type="password" class="form-control form-control-lg text-center" 
-                           id="senha" maxlength="10" style="font-size: 1.5rem;">
+                           id="senha" maxlength="10" style="font-size: 1.5rem;" placeholder="Digite sua senha">
                 </div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
                 <button type="button" class="btn btn-danger" onclick="confirmarLogin()">
-                    <span class="loading-spinner" id="spinner" style="display: none;"></span>
+                    <span id="spinner" style="display: none;">🔄</span>
                     Entrar
                 </button>
             </div>
@@ -48,19 +55,22 @@
     </div>
 </div>
 
+{% csrf_token %}
+
 {% endblock %}
 
 {% block extra_js %}
 <script>
 let soldadorSelecionado = null;
 
-function selecionarSoldador(soldadorId) {
+function selecionarSoldador(soldadorId, nome) {
     soldadorSelecionado = soldadorId;
+    document.getElementById('soldador-nome').textContent = nome;
     document.getElementById('senha').value = '';
+    
     const modal = new bootstrap.Modal(document.getElementById('modalSenha'));
     modal.show();
     
-    // Focar no campo senha
     setTimeout(() => {
         document.getElementById('senha').focus();
     }, 500);
@@ -71,44 +81,77 @@ function confirmarLogin() {
     
     if (!senha.trim()) {
         alert('Digite a senha');
+        document.getElementById('senha').focus();
         return;
     }
     
-    // Mostrar loading
     document.getElementById('spinner').style.display = 'inline-block';
     
-    // Fazer login
-    makeRequest('/login_soldador/', {
+    const dadosLogin = {
+        soldador_id: soldadorSelecionado,
+        senha: senha
+    };
+    
+    fetch('/login_soldador/', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
+            'X-CSRFToken': getCsrfToken(),
+            'X-Requested-With': 'XMLHttpRequest'
         },
-        body: JSON.stringify({
-            soldador_id: soldadorSelecionado,
-            senha: senha
-        })
+        body: JSON.stringify(dadosLogin),
+        credentials: 'same-origin'
     })
-    .then(response => response.json())
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        return response.json();
+    })
     .then(data => {
+        document.getElementById('spinner').style.display = 'none';
+        
         if (data.success) {
-            window.location.href = data.redirect;
+            window.location.href = data.redirect || '/apontamento/';
         } else {
-            alert(data.message || 'Erro no login');
-            document.getElementById('spinner').style.display = 'none';
+            alert(`❌ Erro no login: ${data.message || 'Erro desconhecido'}`);
         }
     })
     .catch(error => {
-        console.error('Erro:', error);
-        alert('Erro de conexão. Dados salvos offline.');
         document.getElementById('spinner').style.display = 'none';
+        alert(`❌ Erro de conexão: ${error.message}`);
     });
 }
 
-// Enter para confirmar
-document.getElementById('senha').addEventListener('keypress', function(e) {
-    if (e.key === 'Enter') {
-        confirmarLogin();
+function getCsrfToken() {
+    const metaTag = document.querySelector('[name=csrfmiddlewaretoken]');
+    if (metaTag) {
+        return metaTag.value;
     }
+    
+    const cookies = document.cookie.split(';');
+    for (let cookie of cookies) {
+        const [name, value] = cookie.trim().split('=');
+        if (name === 'csrftoken') {
+            return value;
+        }
+    }
+    
+    const hiddenInput = document.querySelector('input[name="csrfmiddlewaretoken"]');
+    if (hiddenInput) {
+        return hiddenInput.value;
+    }
+    
+    return '';
+}
+
+// Enter para confirmar senha
+document.addEventListener('DOMContentLoaded', function() {
+    document.getElementById('senha').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            confirmarLogin();
+        }
+    });
 });
 </script>
 {% endblock %}

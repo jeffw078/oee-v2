@@ -1,0 +1,41 @@
+{% extends 'base.html' %}
+
+{% block title %}Painel de Qualidade{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="saudacao">
+        <h3>Painel de Qualidade - {{ soldador.usuario.nome_completo }}</h3>
+        <p>Aqui você pode registrar defeitos encontrados na soldagem</p>
+    </div>
+    
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h5>🔍 Controle de Qualidade</h5>
+                </div>
+                <div class="card-body text-center">
+                    <p class="mb-4">Funcionalidade em desenvolvimento</p>
+                    <p>Em breve você poderá:</p>
+                    <ul class="list-unstyled">
+                        <li>• Registrar defeitos na soldagem</li>
+                        <li>• Medir área dos defeitos</li>
+                        <li>• Associar defeitos aos componentes</li>
+                        <li>• Gerar relatórios de qualidade</li>
+                    </ul>
+                </div>
+                <div class="card-footer">
+                    <button class="btn btn-secondary" onclick="voltar()">⬅ Voltar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function voltar() {
+    window.location.href = '/apontamento/';
+}
+</script>
+{% endblock %}

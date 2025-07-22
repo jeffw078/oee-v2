@@ -1,43 +1,521 @@
+<!-- templates/soldagem/painel_paradas.html -->
 {% extends 'base.html' %}
 
-{% block title %}Painel de Paradas{% endblock %}
+{% block title %}Painel de Paradas - Sistema OEE{% endblock %}
+
+{% block extra_css %}
+<style>
+    .parada-header {
+        background: #6c757d;
+        color: white;
+        padding: 20px;
+        margin: -20px -20px 30px -20px;
+        text-align: center;
+    }
+    
+    .soldador-info {
+        background: #f8f9fa;
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        padding: 15px;
+        margin: 20px 0;
+        text-align: center;
+    }
+    
+    .parada-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 15px;
+        margin: 30px 0;
+    }
+    
+    .parada-btn {
+        padding: 20px;
+        font-size: 1.1rem;
+        font-weight: bold;
+        border: none;
+        border-radius: 8px;
+        background: #6c757d;
+        color: white;
+        cursor: pointer;
+        transition: all 0.3s;
+        text-align: center;
+        min-height: 80px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .parada-btn:hover {
+        background: #5a6268;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    }
+    
+    .parada-btn.selected {
+        background: #dc3545;
+        border: 3px solid #fff;
+        box-shadow: 0 0 0 2px #dc3545;
+    }
+    
+    .form-section {
+        background: white;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        padding: 20px;
+        margin: 20px 0;
+    }
+    
+    .timer-display {
+        font-size: 2rem;
+        font-weight: bold;
+        color: #dc3545;
+        text-align: center;
+        margin: 20px 0;
+        padding: 15px;
+        background: #f8f9fa;
+        border-radius: 8px;
+    }
+    
+    .parada-info {
+        background: #fff3cd;
+        border: 1px solid #ffeaa7;
+        border-radius: 8px;
+        padding: 15px;
+        margin: 15px 0;
+        color: #856404;
+    }
+    
+    .btn {
+        padding: 12px 24px;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 16px;
+        font-weight: bold;
+        margin: 5px;
+        transition: all 0.3s;
+    }
+    
+    .btn-primary { background: #007bff; color: white; }
+    .btn-success { background: #28a745; color: white; }
+    .btn-danger { background: #dc3545; color: white; }
+    .btn-secondary { background: #6c757d; color: white; }
+    .btn-warning { background: #ffc107; color: #000; }
+    
+    .btn:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+    
+    .control-panel {
+        background: #e9ecef;
+        border-radius: 8px;
+        padding: 20px;
+        margin: 20px 0;
+        text-align: center;
+    }
+    
+    .form-group {
+        margin-bottom: 15px;
+    }
+    
+    .form-group label {
+        display: block;
+        margin-bottom: 5px;
+        font-weight: bold;
+        color: #495057;
+    }
+    
+    .form-control {
+        width: 100%;
+        padding: 10px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 16px;
+        box-sizing: border-box;
+    }
+    
+    .status-active {
+        color: #28a745;
+        font-weight: bold;
+    }
+    
+    .status-inactive {
+        color: #6c757d;
+    }
+    
+    .parada-description {
+        font-size: 0.9rem;
+        color: #6c757d;
+        margin-top: 5px;
+        font-weight: normal;
+    }
+    
+    @media (max-width: 768px) {
+        .parada-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+        
+        .parada-btn {
+            font-size: 1rem;
+            padding: 15px;
+            min-height: 70px;
+        }
+        
+        .timer-display {
+            font-size: 1.5rem;
+        }
+    }
+    
+    @media (max-width: 480px) {
+        .parada-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="container-fluid">
-    <div class="saudacao">
-        <h3>Painel de Paradas - {{ soldador.usuario.nome_completo }}</h3>
-        <p>Registre paradas durante o processo de soldagem</p>
-    </div>
-    
-    <div class="row justify-content-center">
-        <div class="col-md-8">
-            <div class="card">
-                <div class="card-header">
-                    <h5>⏸️ Registro de Paradas</h5>
-                </div>
-                <div class="card-body text-center">
-                    <p class="mb-4">Funcionalidade em desenvolvimento</p>
-                    <p>Em breve você poderá registrar:</p>
-                    <ul class="list-unstyled">
-                        <li>• Ida ao banheiro</li>
-                        <li>• Lanche/Almoço</li>
-                        <li>• Troca de consumíveis</li>
-                        <li>• Falta de material</li>
-                        <li>• Reuniões</li>
-                        <li>• Outras paradas operacionais</li>
-                    </ul>
-                </div>
-                <div class="card-footer">
-                    <button class="btn btn-secondary" onclick="voltar()">⬅ Voltar</button>
-                </div>
+<div class="parada-header">
+    <h2>⏸ Painel de Paradas Gerais</h2>
+    <p>Registro de paradas operacionais</p>
+</div>
+
+<!-- Informações do soldador -->
+<div class="soldador-info">
+    <h3>👤 {{ soldador.usuario.nome_completo }}</h3>
+    <div id="currentTime" class="timer-display"></div>
+</div>
+
+<!-- Seleção de tipo de parada -->
+<div class="form-section">
+    <h3>📋 Selecione o Motivo da Parada</h3>
+    <div class="parada-grid" id="paradaGrid">
+        {% for tipo in tipos_parada %}
+        <button class="parada-btn" 
+                onclick="selecionarTipoParada({{ tipo.id }}, '{{ tipo.nome }}', {{ tipo.penaliza_oee|yesno:'true,false' }})"
+                style="background: {{ tipo.cor_exibicao }};">
+            <div>
+                <div>{{ tipo.nome }}</div>
+                {% if not tipo.penaliza_oee %}
+                <div class="parada-description">⚠ Não penaliza OEE</div>
+                {% endif %}
             </div>
+        </button>
+        {% empty %}
+        <div class="col-12">
+            <p class="text-muted text-center">Nenhum tipo de parada configurado.</p>
         </div>
+        {% endfor %}
     </div>
 </div>
 
+<!-- Formulário de detalhes -->
+<div class="form-section" id="formDetalhes" style="display: none;">
+    <h3>📝 Detalhes da Parada</h3>
+    
+    <div class="form-group">
+        <label for="motivoDetalhado">Descrição detalhada (opcional):</label>
+        <textarea id="motivoDetalhado" class="form-control" rows="4" 
+                  placeholder="Descreva os detalhes da parada, como local, equipamento envolvido, etc."></textarea>
+    </div>
+    
+    <div class="parada-info" id="infoParada" style="display: none;"></div>
+    
+    <div class="control-panel">
+        <button class="btn btn-success" onclick="confirmarParada()">
+            ▶ Iniciar Parada
+        </button>
+        <button class="btn btn-secondary" onclick="cancelarParada()">
+            ❌ Cancelar
+        </button>
+    </div>
+</div>
+
+<!-- Status de parada ativa -->
+<div class="form-section" id="paradaAtiva" style="display: none;">
+    <h3 class="status-active">⏸ PARADA EM ANDAMENTO</h3>
+    
+    <div class="parada-info">
+        <div id="tipoParadaAtiva"></div>
+        <div id="inicioParada"></div>
+    </div>
+    
+    <div class="timer-display" id="timerParada">Duração: 00:00:00</div>
+    
+    <div class="control-panel">
+        <button class="btn btn-danger" onclick="finalizarParada()">
+            ⏹ Finalizar Parada
+        </button>
+    </div>
+</div>
+
+<!-- Controles de navegação -->
+<div class="form-section" style="text-align: center;">
+    <button class="btn btn-primary" onclick="voltarApontamento()">
+        🔙 Voltar ao Apontamento
+    </button>
+    <button class="btn btn-warning" onclick="finalizarTurno()">
+        🚪 Finalizar Turno
+    </button>
+</div>
+
 <script>
-function voltar() {
-    window.location.href = '/apontamento/';
+// Variáveis globais
+let tipoParadaSelecionado = null;
+let paradaAtualId = null;
+let inicioParadaTime = null;
+
+// Atualizar relógio
+function atualizarRelogio() {
+    const agora = new Date();
+    const horas = agora.getHours().toString().padStart(2, '0');
+    const minutos = agora.getMinutes().toString().padStart(2, '0');
+    const segundos = agora.getSeconds().toString().padStart(2, '0');
+    
+    document.getElementById('currentTime').textContent = `${horas}:${minutos}:${segundos}`;
 }
+
+// Atualizar timer da parada
+function atualizarTimerParada() {
+    if (!inicioParadaTime) return;
+    
+    const inicio = new Date(inicioParadaTime);
+    const agora = new Date();
+    const diff = agora - inicio;
+    
+    const horas = Math.floor(diff / 3600000);
+    const minutos = Math.floor((diff % 3600000) / 60000);
+    const segundos = Math.floor((diff % 60000) / 1000);
+    
+    const timer = document.getElementById('timerParada');
+    if (timer) {
+        timer.textContent = `Duração: ${horas.toString().padStart(2, '0')}:${minutos.toString().padStart(2, '0')}:${segundos.toString().padStart(2, '0')}`;
+    }
+}
+
+function selecionarTipoParada(id, nome, penalizaOee) {
+    tipoParadaSelecionado = { id: id, nome: nome, penaliza_oee: penalizaOee };
+    
+    // Destacar botão selecionado
+    const buttons = document.querySelectorAll('.parada-btn');
+    buttons.forEach(btn => btn.classList.remove('selected'));
+    event.target.classList.add('selected');
+    
+    // Mostrar formulário de detalhes
+    document.getElementById('formDetalhes').style.display = 'block';
+    
+    // Mostrar informações sobre o tipo de parada
+    const infoDiv = document.getElementById('infoParada');
+    infoDiv.style.display = 'block';
+    
+    let infoText = `<strong>Tipo selecionado:</strong> ${nome}<br>`;
+    if (!penalizaOee) {
+        infoText += `<strong>⚠ Importante:</strong> Esta parada não penalizará o indicador OEE.<br>`;
+        infoText += `As horas disponíveis serão ajustadas automaticamente.`;
+    } else {
+        infoText += `<strong>📊 Impacto:</strong> Esta parada será contabilizada no cálculo do OEE.`;
+    }
+    
+    infoDiv.innerHTML = infoText;
+    
+    // Focar no campo de texto
+    document.getElementById('motivoDetalhado').focus();
+}
+
+function confirmarParada() {
+    if (!tipoParadaSelecionado) {
+        alert('❌ Selecione um tipo de parada');
+        return;
+    }
+    
+    const motivoDetalhado = document.getElementById('motivoDetalhado').value.trim();
+    
+    const confirmMessage = `⚠️ Confirma o início da parada?\n\nTipo: ${tipoParadaSelecionado.nome}\n${motivoDetalhado ? `Detalhes: ${motivoDetalhado}` : ''}`;
+    
+    if (!confirm(confirmMessage)) {
+        return;
+    }
+    
+    // Enviar dados para o servidor
+    fetch('/soldagem/iniciar_parada/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCsrfToken()
+        },
+        body: JSON.stringify({
+            tipo_parada_id: tipoParadaSelecionado.id,
+            motivo_detalhado: motivoDetalhado
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            mostrarParadaAtiva(data);
+        } else {
+            alert(`❌ Erro: ${data.message}`);
+        }
+    })
+    .catch(error => {
+        alert(`❌ Erro de conexão: ${error.message}`);
+    });
+}
+
+function mostrarParadaAtiva(data) {
+    paradaAtualId = data.parada_id;
+    inicioParadaTime = new Date().toISOString();
+    
+    // Esconder formulários de seleção
+    document.getElementById('formDetalhes').style.display = 'none';
+    document.querySelector('.form-section').style.display = 'none';
+    
+    // Mostrar status de parada ativa
+    document.getElementById('paradaAtiva').style.display = 'block';
+    document.getElementById('tipoParadaAtiva').innerHTML = `<strong>Tipo:</strong> ${data.tipo_parada}`;
+    document.getElementById('inicioParada').innerHTML = `<strong>Início:</strong> ${new Date().toLocaleTimeString()}`;
+    
+    alert(`✅ Parada iniciada com sucesso!\nTipo: ${data.tipo_parada}`);
+}
+
+function finalizarParada() {
+    if (!paradaAtualId) {
+        alert('❌ Nenhuma parada em andamento');
+        return;
+    }
+    
+    if (!confirm('⚠️ Confirma a finalização da parada?')) {
+        return;
+    }
+    
+    fetch('/soldagem/finalizar_parada/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCsrfToken()
+        },
+        body: JSON.stringify({
+            parada_id: paradaAtualId
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert(`✅ Parada finalizada!\nDuração: ${data.duracao_minutos.toFixed(1)} minutos`);
+            
+            // Resetar interface
+            paradaAtualId = null;
+            inicioParadaTime = null;
+            document.getElementById('paradaAtiva').style.display = 'none';
+            cancelarParada();
+            
+            // Retornar ao apontamento
+            setTimeout(() => {
+                voltarApontamento();
+            }, 1000);
+        } else {
+            alert(`❌ Erro: ${data.message}`);
+        }
+    })
+    .catch(error => {
+        alert(`❌ Erro de conexão: ${error.message}`);
+    });
+}
+
+function cancelarParada() {
+    // Limpar seleção
+    tipoParadaSelecionado = null;
+    
+    // Esconder formulário
+    document.getElementById('formDetalhes').style.display = 'none';
+    
+    // Limpar campos
+    document.getElementById('motivoDetalhado').value = '';
+    
+    // Remover seleção visual
+    const buttons = document.querySelectorAll('.parada-btn');
+    buttons.forEach(btn => btn.classList.remove('selected'));
+    
+    // Mostrar grid de paradas novamente
+    document.querySelector('.form-section').style.display = 'block';
+}
+
+function voltarApontamento() {
+    if (paradaAtualId) {
+        alert('❌ Finalize a parada antes de sair');
+        return;
+    }
+    
+    window.location.href = '/soldagem/apontamento/';
+}
+
+function finalizarTurno() {
+    if (paradaAtualId) {
+        alert('❌ Finalize a parada antes de finalizar o turno');
+        return;
+    }
+    
+    if (confirm('⚠️ Confirma a finalização do turno?')) {
+        window.location.href = '/soldagem/finalizar_turno/';
+    }
+}
+
+function getCsrfToken() {
+    const metaTag = document.querySelector('[name=csrfmiddlewaretoken]');
+    if (metaTag) return metaTag.value;
+    
+    const cookies = document.cookie.split(';');
+    for (let cookie of cookies) {
+        const [name, value] = cookie.trim().split('=');
+        if (name === 'csrftoken') return value;
+    }
+    
+    const hiddenInput = document.querySelector('input[name="csrfmiddlewaretoken"]');
+    if (hiddenInput) return hiddenInput.value;
+    
+    return '';
+}
+
+// Verificar se há parada em andamento ao carregar a página
+function verificarParadaAndamento() {
+    // Esta função seria implementada para verificar no servidor
+    // se já existe uma parada em andamento para este soldador
+}
+
+// Eventos de teclado
+document.addEventListener('keydown', function(e) {
+    // ESC para cancelar
+    if (e.key === 'Escape' && !paradaAtualId) {
+        cancelarParada();
+    }
+    
+    // Enter para confirmar quando formulário visível
+    if (e.key === 'Enter' && document.getElementById('formDetalhes').style.display !== 'none') {
+        confirmarParada();
+    }
+});
+
+// Inicialização
+document.addEventListener('DOMContentLoaded', function() {
+    // Timers
+    setInterval(atualizarRelogio, 1000);
+    setInterval(atualizarTimerParada, 1000);
+    
+    // Verificar parada em andamento
+    verificarParadaAndamento();
+    
+    // Atualizar relógio inicial
+    atualizarRelogio();
+});
+
+// Aviso antes de sair da página
+window.addEventListener('beforeunload', function(e) {
+    if (paradaAtualId) {
+        e.preventDefault();
+        e.returnValue = 'Há uma parada em andamento. Tem certeza que deseja sair?';
+        return e.returnValue;
+    }
+});
 </script>
 {% endblock %}

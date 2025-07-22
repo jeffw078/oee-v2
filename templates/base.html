@@ -283,7 +283,8 @@
     <!-- Header -->
     <header class="header-oee">
         <div class="container">
-            <div class="logo">SteelMast</div>
+            {% load static %} 
+<img src="{% static 'img/logo.png' %}" width="100px" alt="">
             <div class="sistema-titulo">Sistema de Apontamento OEE</div>
             <div class="header-info">
                 <span class="status-conexao" id="status-conexao"></span>

@@ -1,43 +1,717 @@
+<!-- templates/soldagem/painel_manutencao.html -->
 {% extends 'base.html' %}
 
-{% block title %}Painel de Manutenção{% endblock %}
+{% block title %}Painel de Manutenção - Sistema OEE{% endblock %}
+
+{% block extra_css %}
+<style>
+    .manutencao-header {
+        background: #ffc107;
+        color: #000;
+        padding: 20px;
+        margin: -20px -20px 30px -20px;
+        text-align: center;
+    }
+    
+    .soldador-info {
+        background: #f8f9fa;
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        padding: 15px;
+        margin: 20px 0;
+        text-align: center;
+    }
+    
+    .auth-section {
+        background: #fff3cd;
+        border: 1px solid #ffeaa7;
+        border-radius: 8px;
+        padding: 20px;
+        margin: 20px 0;
+        text-align: center;
+    }
+    
+    .manutencao-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 15px;
+        margin: 30px 0;
+    }
+    
+    .manutencao-btn {
+        padding: 20px;
+        font-size: 1.1rem;
+        font-weight: bold;
+        border: none;
+        border-radius: 8px;
+        background: #ffc107;
+        color: #000;
+        cursor: pointer;
+        transition: all 0.3s;
+        text-align: center;
+        min-height: 80px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .manutencao-btn:hover {
+        background: #e0a800;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    }
+    
+    .manutencao-btn.selected {
+        background: #dc3545;
+        color: white;
+        border: 3px solid #fff;
+        box-shadow: 0 0 0 2px #dc3545;
+    }
+    
+    .form-section {
+        background: white;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        padding: 20px;
+        margin: 20px 0;
+    }
+    
+    .timer-display {
+        font-size: 2rem;
+        font-weight: bold;
+        color: #dc3545;
+        text-align: center;
+        margin: 20px 0;
+        padding: 15px;
+        background: #f8f9fa;
+        border-radius: 8px;
+    }
+    
+    .manutencao-info {
+        background: #f8d7da;
+        border: 1px solid #f5c6cb;
+        border-radius: 8px;
+        padding: 15px;
+        margin: 15px 0;
+        color: #721c24;
+    }
+    
+    .btn {
+        padding: 12px 24px;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 16px;
+        font-weight: bold;
+        margin: 5px;
+        transition: all 0.3s;
+    }
+    
+    .btn-primary { background: #007bff; color: white; }
+    .btn-success { background: #28a745; color: white; }
+    .btn-danger { background: #dc3545; color: white; }
+    .btn-secondary { background: #6c757d; color: white; }
+    .btn-warning { background: #ffc107; color: #000; }
+    
+    .btn:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+    
+    .control-panel {
+        background: #e9ecef;
+        border-radius: 8px;
+        padding: 20px;
+        margin: 20px 0;
+        text-align: center;
+    }
+    
+    .form-group {
+        margin-bottom: 15px;
+    }
+    
+    .form-group label {
+        display: block;
+        margin-bottom: 5px;
+        font-weight: bold;
+        color: #495057;
+    }
+    
+    .form-control {
+        width: 100%;
+        padding: 10px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 16px;
+        box-sizing: border-box;
+    }
+    
+    .auth-input {
+        background: #fff;
+        border: 2px solid #ffc107;
+        text-align: center;
+        font-size: 18px;
+        font-weight: bold;
+    }
+    
+    .status-active {
+        color: #dc3545;
+        font-weight: bold;
+    }
+    
+    .priority-high {
+        background: #f8d7da !important;
+        border-color: #dc3545 !important;
+        color: #721c24 !important;
+    }
+    
+    .priority-medium {
+        background: #fff3cd !important;
+        border-color: #ffc107 !important;
+        color: #856404 !important;
+    }
+    
+    .priority-low {
+        background: #d1ecf1 !important;
+        border-color: #17a2b8 !important;
+        color: #0c5460 !important;
+    }
+    
+    .equipamento-info {
+        background: #e9ecef;
+        border-radius: 8px;
+        padding: 15px;
+        margin: 10px 0;
+        font-size: 0.9rem;
+    }
+    
+    @media (max-width: 768px) {
+        .manutencao-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+        
+        .manutencao-btn {
+            font-size: 1rem;
+            padding: 15px;
+            min-height: 70px;
+        }
+        
+        .timer-display {
+            font-size: 1.5rem;
+        }
+    }
+    
+    @media (max-width: 480px) {
+        .manutencao-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="container-fluid">
-    <div class="saudacao">
-        <h3>Painel de Manutenção - {{ soldador.usuario.nome_completo }}</h3>
-        <p>Registre paradas para manutenção de equipamentos</p>
+<div class="manutencao-header">
+    <h2>🔧 Painel de Manutenção</h2>
+    <p>Registro de paradas para manutenção preventiva e corretiva</p>
+</div>
+
+<!-- Informações do soldador -->
+<div class="soldador-info">
+    <h3>👤 {{ soldador.usuario.nome_completo }}</h3>
+    <div id="currentTime" class="timer-display"></div>
+</div>
+
+<!-- Autenticação de manutenção -->
+<div class="auth-section" id="authSection">
+    <h3>🔐 Autenticação Necessária</h3>
+    <p>Digite a senha de autorização da equipe de manutenção:</p>
+    
+    <div class="form-group">
+        <input type="password" id="senhaManutencao" class="form-control auth-input" 
+               placeholder="Senha de Manutenção" maxlength="10">
     </div>
     
-    <div class="row justify-content-center">
-        <div class="col-md-8">
-            <div class="card">
-                <div class="card-header">
-                    <h5>🔧 Manutenção de Equipamentos</h5>
+    <div class="control-panel">
+        <button class="btn btn-warning" onclick="autenticarManutencao()">
+            🔓 Autenticar
+        </button>
+        <button class="btn btn-secondary" onclick="voltarApontamento()">
+            🔙 Voltar
+        </button>
+    </div>
+</div>
+
+<!-- Painel principal (oculto inicialmente) -->
+<div id="painelPrincipal" style="display: none;">
+    
+    <!-- Seleção de tipo de manutenção -->
+    <div class="form-section">
+        <h3>🛠 Selecione o Tipo de Manutenção</h3>
+        <div class="manutencao-grid" id="manutencaoGrid">
+            {% for tipo in tipos_parada %}
+            <button class="manutencao-btn" 
+                    onclick="selecionarTipoManutencao({{ tipo.id }}, '{{ tipo.nome }}', {{ tipo.penaliza_oee|yesno:'true,false' }})"
+                    style="background: {{ tipo.cor_exibicao }};">
+                <div>
+                    <div>{{ tipo.nome }}</div>
+                    {% if not tipo.penaliza_oee %}
+                    <div style="font-size: 0.8rem; margin-top: 5px;">⚠ Não penaliza OEE</div>
+                    {% endif %}
                 </div>
-                <div class="card-body text-center">
-                    <p class="mb-4">Funcionalidade em desenvolvimento</p>
-                    <p>Em breve você poderá registrar:</p>
-                    <ul class="list-unstyled">
-                        <li>• Falhas de equipamento</li>
-                        <li>• Manutenção preventiva</li>
-                        <li>• Troca de eletrodos</li>
-                        <li>• Regulagem de soldagem</li>
-                        <li>• Limpeza de equipamentos</li>
-                        <li>• Outras atividades de manutenção</li>
-                    </ul>
-                </div>
-                <div class="card-footer">
-                    <button class="btn btn-secondary" onclick="voltar()">⬅ Voltar</button>
-                </div>
+            </button>
+            {% empty %}
+            <div class="col-12">
+                <p class="text-muted text-center">Nenhum tipo de manutenção configurado.</p>
             </div>
+            {% endfor %}
         </div>
+    </div>
+    
+    <!-- Formulário de detalhes -->
+    <div class="form-section" id="formDetalhes" style="display: none;">
+        <h3>📋 Detalhes da Manutenção</h3>
+        
+        <div class="form-group">
+            <label for="equipamentoAfetado">Equipamento/Local afetado:</label>
+            <input type="text" id="equipamentoAfetado" class="form-control" 
+                   placeholder="Ex: Solda MIG 01, Mesa de trabalho 02, etc.">
+        </div>
+        
+        <div class="form-group">
+            <label for="prioridadeManutencao">Prioridade:</label>
+            <select id="prioridadeManutencao" class="form-control" onchange="atualizarPrioridade()">
+                <option value="baixa">🟢 Baixa - Pode aguardar</option>
+                <option value="media" selected>🟡 Média - Resolver hoje</option>
+                <option value="alta">🔴 Alta - Resolver imediatamente</option>
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label for="problemaDescricao">Descrição do problema:</label>
+            <textarea id="problemaDescricao" class="form-control" rows="4" 
+                      placeholder="Descreva detalhadamente o problema encontrado, sintomas, equipamentos envolvidos, etc."></textarea>
+        </div>
+        
+        <div class="form-group">
+            <label for="acaoTomada">Ação tomada (opcional):</label>
+            <textarea id="acaoTomada" class="form-control" rows="3" 
+                      placeholder="Descreva as ações já realizadas para tentar resolver o problema"></textarea>
+        </div>
+        
+        <div class="manutencao-info" id="infoManutencao" style="display: none;"></div>
+        
+        <div class="control-panel">
+            <button class="btn btn-danger" onclick="confirmarManutencao()">
+                🚨 Iniciar Manutenção
+            </button>
+            <button class="btn btn-secondary" onclick="cancelarManutencao()">
+                ❌ Cancelar
+            </button>
+        </div>
+    </div>
+    
+    <!-- Status de manutenção ativa -->
+    <div class="form-section" id="manutencaoAtiva" style="display: none;">
+        <h3 class="status-active">🚨 MANUTENÇÃO EM ANDAMENTO</h3>
+        
+        <div class="manutencao-info">
+            <div id="tipoManutencaoAtiva"></div>
+            <div id="equipamentoAtivo"></div>
+            <div id="inicioManutencao"></div>
+            <div id="prioridadeAtiva"></div>
+        </div>
+        
+        <div class="timer-display" id="timerManutencao">Duração: 00:00:00</div>
+        
+        <div class="equipamento-info">
+            <strong>📝 Instruções para a equipe de manutenção:</strong><br>
+            - Verifique se o problema foi resolvido completamente<br>
+            - Teste o equipamento antes de liberar<br>
+            - Documente a solução aplicada<br>
+            - Finalize a manutenção neste sistema
+        </div>
+        
+        <div class="control-panel">
+            <button class="btn btn-success" onclick="finalizarManutencao()">
+                ✅ Finalizar Manutenção
+            </button>
+            <button class="btn btn-warning" onclick="pausarManutencao()">
+                ⏸ Pausar Temporariamente
+            </button>
+        </div>
+    </div>
+    
+    <!-- Controles de navegação -->
+    <div class="form-section" style="text-align: center;">
+        <button class="btn btn-primary" onclick="voltarApontamento()">
+            🔙 Voltar ao Apontamento
+        </button>
+        <button class="btn btn-secondary" onclick="logout()">
+            🚪 Sair da Manutenção
+        </button>
     </div>
 </div>
 
 <script>
-function voltar() {
-    window.location.href = '/apontamento/';
+// Variáveis globais
+let tipoManutencaoSelecionado = null;
+let manutencaoAtualId = null;
+let inicioManutencaoTime = null;
+let usuarioManutencao = null;
+
+// Atualizar relógio
+function atualizarRelogio() {
+    const agora = new Date();
+    const horas = agora.getHours().toString().padStart(2, '0');
+    const minutos = agora.getMinutes().toString().padStart(2, '0');
+    const segundos = agora.getSeconds().toString().padStart(2, '0');
+    
+    document.getElementById('currentTime').textContent = `${horas}:${minutos}:${segundos}`;
 }
+
+// Atualizar timer da manutenção
+function atualizarTimerManutencao() {
+    if (!inicioManutencaoTime) return;
+    
+    const inicio = new Date(inicioManutencaoTime);
+    const agora = new Date();
+    const diff = agora - inicio;
+    
+    const horas = Math.floor(diff / 3600000);
+    const minutos = Math.floor((diff % 3600000) / 60000);
+    const segundos = Math.floor((diff % 60000) / 1000);
+    
+    const timer = document.getElementById('timerManutencao');
+    if (timer) {
+        timer.textContent = `Duração: ${horas.toString().padStart(2, '0')}:${minutos.toString().padStart(2, '0')}:${segundos.toString().padStart(2, '0')}`;
+    }
+}
+
+function autenticarManutencao() {
+    const senha = document.getElementById('senhaManutencao').value.trim();
+    
+    if (!senha) {
+        alert('❌ Digite a senha de manutenção');
+        document.getElementById('senhaManutencao').focus();
+        return;
+    }
+    
+    // Verificar credenciais (simulado - em produção usar endpoint real)
+    // Por enquanto, aceitar qualquer senha para demonstração
+    if (senha.length >= 3) {
+        usuarioManutencao = senha;
+        document.getElementById('authSection').style.display = 'none';
+        document.getElementById('painelPrincipal').style.display = 'block';
+        
+        alert('✅ Autenticação realizada com sucesso!');
+    } else {
+        alert('❌ Senha inválida para equipe de manutenção');
+        document.getElementById('senhaManutencao').value = '';
+        document.getElementById('senhaManutencao').focus();
+    }
+}
+
+function selecionarTipoManutencao(id, nome, penalizaOee) {
+    tipoManutencaoSelecionado = { id: id, nome: nome, penaliza_oee: penalizaOee };
+    
+    // Destacar botão selecionado
+    const buttons = document.querySelectorAll('.manutencao-btn');
+    buttons.forEach(btn => btn.classList.remove('selected'));
+    event.target.classList.add('selected');
+    
+    // Mostrar formulário de detalhes
+    document.getElementById('formDetalhes').style.display = 'block';
+    
+    // Mostrar informações sobre o tipo de manutenção
+    const infoDiv = document.getElementById('infoManutencao');
+    infoDiv.style.display = 'block';
+    
+    let infoText = `<strong>Tipo selecionado:</strong> ${nome}<br>`;
+    if (!penalizaOee) {
+        infoText += `<strong>⚠ Importante:</strong> Esta manutenção não penalizará o indicador OEE.<br>`;
+        infoText += `As horas disponíveis serão ajustadas automaticamente.`;
+    } else {
+        infoText += `<strong>📊 Impacto:</strong> Esta manutenção será contabilizada no cálculo do OEE.`;
+    }
+    
+    infoDiv.innerHTML = infoText;
+    
+    // Focar no campo de equipamento
+    document.getElementById('equipamentoAfetado').focus();
+}
+
+function atualizarPrioridade() {
+    const prioridade = document.getElementById('prioridadeManutencao').value;
+    const form = document.getElementById('formDetalhes');
+    
+    // Remover classes de prioridade existentes
+    form.classList.remove('priority-high', 'priority-medium', 'priority-low');
+    
+    // Adicionar classe baseada na prioridade
+    switch(prioridade) {
+        case 'alta':
+            form.classList.add('priority-high');
+            break;
+        case 'media':
+            form.classList.add('priority-medium');
+            break;
+        case 'baixa':
+            form.classList.add('priority-low');
+            break;
+    }
+}
+
+function confirmarManutencao() {
+    if (!tipoManutencaoSelecionado) {
+        alert('❌ Selecione um tipo de manutenção');
+        return;
+    }
+    
+    const equipamento = document.getElementById('equipamentoAfetado').value.trim();
+    const prioridade = document.getElementById('prioridadeManutencao').value;
+    const problema = document.getElementById('problemaDescricao').value.trim();
+    const acao = document.getElementById('acaoTomada').value.trim();
+    
+    if (!equipamento) {
+        alert('❌ Informe o equipamento/local afetado');
+        document.getElementById('equipamentoAfetado').focus();
+        return;
+    }
+    
+    if (!problema) {
+        alert('❌ Descreva o problema encontrado');
+        document.getElementById('problemaDescricao').focus();
+        return;
+    }
+    
+    const prioridadeTexto = {
+        'alta': '🔴 ALTA - Resolver imediatamente',
+        'media': '🟡 MÉDIA - Resolver hoje',
+        'baixa': '🟢 BAIXA - Pode aguardar'
+    };
+    
+    const confirmMessage = `⚠️ Confirma o início da manutenção?\n\nTipo: ${tipoManutencaoSelecionado.nome}\nEquipamento: ${equipamento}\nPrioridade: ${prioridadeTexto[prioridade]}\nProblema: ${problema}`;
+    
+    if (!confirm(confirmMessage)) {
+        return;
+    }
+    
+    // Preparar dados para envio
+    const dadosManutencao = {
+        tipo_parada_id: tipoManutencaoSelecionado.id,
+        motivo_detalhado: `EQUIPAMENTO: ${equipamento}\nPRIORIDADE: ${prioridade.toUpperCase()}\nPROBLEMA: ${problema}${acao ? `\nAÇÃO TOMADA: ${acao}` : ''}`,
+        senha_especial: usuarioManutencao
+    };
+    
+    // Enviar dados para o servidor
+    fetch('/soldagem/iniciar_parada/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCsrfToken()
+        },
+        body: JSON.stringify(dadosManutencao)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            mostrarManutencaoAtiva(data, equipamento, prioridade);
+        } else {
+            alert(`❌ Erro: ${data.message}`);
+        }
+    })
+    .catch(error => {
+        alert(`❌ Erro de conexão: ${error.message}`);
+    });
+}
+
+function mostrarManutencaoAtiva(data, equipamento, prioridade) {
+    manutencaoAtualId = data.parada_id;
+    inicioManutencaoTime = new Date().toISOString();
+    
+    // Esconder formulários de seleção
+    document.getElementById('formDetalhes').style.display = 'none';
+    document.querySelector('.form-section').style.display = 'none';
+    
+    // Mostrar status de manutenção ativa
+    document.getElementById('manutencaoAtiva').style.display = 'block';
+    document.getElementById('tipoManutencaoAtiva').innerHTML = `<strong>Tipo:</strong> ${data.tipo_parada}`;
+    document.getElementById('equipamentoAtivo').innerHTML = `<strong>Equipamento:</strong> ${equipamento}`;
+    document.getElementById('inicioManutencao').innerHTML = `<strong>Início:</strong> ${new Date().toLocaleTimeString()}`;
+    
+    const prioridadeTexto = {
+        'alta': '🔴 ALTA',
+        'media': '🟡 MÉDIA',
+        'baixa': '🟢 BAIXA'
+    };
+    document.getElementById('prioridadeAtiva').innerHTML = `<strong>Prioridade:</strong> ${prioridadeTexto[prioridade]}`;
+    
+    alert(`✅ Manutenção iniciada com sucesso!\nTipo: ${data.tipo_parada}\nEquipe de manutenção foi notificada.`);
+}
+
+function finalizarManutencao() {
+    if (!manutencaoAtualId) {
+        alert('❌ Nenhuma manutenção em andamento');
+        return;
+    }
+    
+    const confirmacao = prompt('📝 Descreva brevemente a solução aplicada:');
+    
+    if (confirmacao === null) {
+        return; // Cancelou
+    }
+    
+    if (!confirmacao.trim()) {
+        alert('❌ É obrigatório descrever a solução aplicada');
+        return;
+    }
+    
+    fetch('/soldagem/finalizar_parada/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCsrfToken()
+        },
+        body: JSON.stringify({
+            parada_id: manutencaoAtualId
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert(`✅ Manutenção finalizada!\nDuração: ${data.duracao_minutos.toFixed(1)} minutos\nSolução: ${confirmacao}`);
+            
+            // Resetar interface
+            manutencaoAtualId = null;
+            inicioManutencaoTime = null;
+            document.getElementById('manutencaoAtiva').style.display = 'none';
+            cancelarManutencao();
+            
+            // Retornar ao apontamento
+            setTimeout(() => {
+                voltarApontamento();
+            }, 1000);
+        } else {
+            alert(`❌ Erro: ${data.message}`);
+        }
+    })
+    .catch(error => {
+        alert(`❌ Erro de conexão: ${error.message}`);
+    });
+}
+
+function pausarManutencao() {
+    if (confirm('⏸ Pausar manutenção temporariamente?\nO timer continuará rodando até a finalização definitiva.')) {
+        alert('⏸ Manutenção pausada temporariamente.\nLembre-se de finalizar quando o problema for resolvido.');
+    }
+}
+
+function cancelarManutencao() {
+    // Limpar seleção
+    tipoManutencaoSelecionado = null;
+    
+    // Esconder formulário
+    document.getElementById('formDetalhes').style.display = 'none';
+    
+    // Limpar campos
+    document.getElementById('equipamentoAfetado').value = '';
+    document.getElementById('prioridadeManutencao').selectedIndex = 1;
+    document.getElementById('problemaDescricao').value = '';
+    document.getElementById('acaoTomada').value = '';
+    
+    // Remover seleção visual
+    const buttons = document.querySelectorAll('.manutencao-btn');
+    buttons.forEach(btn => btn.classList.remove('selected'));
+    
+    // Remover classes de prioridade
+    document.getElementById('formDetalhes').classList.remove('priority-high', 'priority-medium', 'priority-low');
+    
+    // Mostrar grid de manutenção novamente
+    document.querySelector('.form-section').style.display = 'block';
+}
+
+function voltarApontamento() {
+    if (manutencaoAtualId) {
+        alert('❌ Finalize a manutenção antes de sair');
+        return;
+    }
+    
+    window.location.href = '/soldagem/apontamento/';
+}
+
+function logout() {
+    if (manutencaoAtualId) {
+        alert('❌ Finalize a manutenção antes de sair');
+        return;
+    }
+    
+    if (confirm('🚪 Confirma a saída do painel de manutenção?')) {
+        usuarioManutencao = null;
+        document.getElementById('painelPrincipal').style.display = 'none';
+        document.getElementById('authSection').style.display = 'block';
+        document.getElementById('senhaManutencao').value = '';
+    }
+}
+
+function getCsrfToken() {
+    const metaTag = document.querySelector('[name=csrfmiddlewaretoken]');
+    if (metaTag) return metaTag.value;
+    
+    const cookies = document.cookie.split(';');
+    for (let cookie of cookies) {
+        const [name, value] = cookie.trim().split('=');
+        if (name === 'csrftoken') return value;
+    }
+    
+    const hiddenInput = document.querySelector('input[name="csrfmiddlewaretoken"]');
+    if (hiddenInput) return hiddenInput.value;
+    
+    return '';
+}
+
+// Eventos de teclado
+document.addEventListener('keydown', function(e) {
+    // Enter na senha de autenticação
+    if (e.key === 'Enter' && e.target.id === 'senhaManutencao') {
+        autenticarManutencao();
+    }
+    
+    // ESC para cancelar (se não há manutenção ativa)
+    if (e.key === 'Escape' && !manutencaoAtualId) {
+        if (document.getElementById('painelPrincipal').style.display !== 'none') {
+            cancelarManutencao();
+        }
+    }
+    
+    // Enter para confirmar quando formulário visível
+    if (e.key === 'Enter' && document.getElementById('formDetalhes').style.display !== 'none') {
+        // Verificar se não está em um textarea
+        if (e.target.tagName !== 'TEXTAREA') {
+            confirmarManutencao();
+        }
+    }
+});
+
+// Inicialização
+document.addEventListener('DOMContentLoaded', function() {
+    // Timers
+    setInterval(atualizarRelogio, 1000);
+    setInterval(atualizarTimerManutencao, 1000);
+    
+    // Focar na senha
+    document.getElementById('senhaManutencao').focus();
+    
+    // Atualizar relógio inicial
+    atualizarRelogio();
+});
+
+// Aviso antes de sair da página
+window.addEventListener('beforeunload', function(e) {
+    if (manutencaoAtualId) {
+        e.preventDefault();
+        e.returnValue = 'Há uma manutenção em andamento. Tem certeza que deseja sair?';
+        return e.returnValue;
+    }
+});
 </script>
 {% endblock %}

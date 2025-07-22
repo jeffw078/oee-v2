@@ -1,41 +1,519 @@
+<!-- templates/qualidade/painel_qualidade.html -->
 {% extends 'base.html' %}
 
-{% block title %}Painel de Qualidade{% endblock %}
+{% block title %}Painel de Qualidade - Sistema OEE{% endblock %}
+
+{% block extra_css %}
+<style>
+    .quality-header {
+        background: #28a745;
+        color: white;
+        padding: 20px;
+        margin: -20px -20px 30px -20px;
+        text-align: center;
+    }
+    
+    .defeito-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 15px;
+        margin: 20px 0;
+    }
+    
+    .defeito-btn {
+        padding: 15px;
+        font-size: 1rem;
+        font-weight: bold;
+        border: none;
+        border-radius: 8px;
+        background: #dc3545;
+        color: white;
+        cursor: pointer;
+        transition: all 0.3s;
+    }
+    
+    .defeito-btn:hover {
+        background: #c82333;
+        transform: translateY(-2px);
+    }
+    
+    .apontamento-card {
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        padding: 15px;
+        margin: 10px 0;
+        background: #f8f9fa;
+        cursor: pointer;
+        transition: all 0.3s;
+    }
+    
+    .apontamento-card:hover {
+        border-color: #28a745;
+        background: #e8f5e9;
+    }
+    
+    .apontamento-card.selected {
+        border-color: #28a745;
+        background: #c8e6c9;
+        border-width: 2px;
+    }
+    
+    .form-section {
+        background: white;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        padding: 20px;
+        margin: 20px 0;
+    }
+    
+    .quality-calculator {
+        background: #e3f2fd;
+        border: 1px solid #2196f3;
+        border-radius: 8px;
+        padding: 15px;
+        margin: 15px 0;
+    }
+    
+    .quality-result {
+        font-size: 1.2rem;
+        font-weight: bold;
+        text-align: center;
+        padding: 10px;
+        margin: 10px 0;
+        border-radius: 8px;
+    }
+    
+    .quality-good { background: #d4edda; color: #155724; }
+    .quality-warning { background: #fff3cd; color: #856404; }
+    .quality-danger { background: #f8d7da; color: #721c24; }
+    
+    .btn {
+        padding: 10px 20px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 16px;
+        margin: 5px;
+    }
+    
+    .btn-primary { background: #007bff; color: white; }
+    .btn-success { background: #28a745; color: white; }
+    .btn-secondary { background: #6c757d; color: white; }
+    .btn-danger { background: #dc3545; color: white; }
+    
+    .modal {
+        display: none;
+        position: fixed;
+        z-index: 1000;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0,0,0,0.5);
+    }
+    
+    .modal-content {
+        background-color: #fefefe;
+        margin: 5% auto;
+        padding: 20px;
+        border: none;
+        border-radius: 8px;
+        width: 90%;
+        max-width: 600px;
+        max-height: 80vh;
+        overflow-y: auto;
+    }
+    
+    .modal-header {
+        background: #28a745;
+        color: white;
+        padding: 15px 20px;
+        margin: -20px -20px 20px -20px;
+        border-radius: 8px 8px 0 0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .close {
+        color: white;
+        font-size: 28px;
+        font-weight: bold;
+        cursor: pointer;
+        background: none;
+        border: none;
+    }
+    
+    .form-group {
+        margin-bottom: 15px;
+    }
+    
+    .form-group label {
+        display: block;
+        margin-bottom: 5px;
+        font-weight: bold;
+    }
+    
+    .form-control {
+        width: 100%;
+        padding: 10px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 16px;
+        box-sizing: border-box;
+    }
+    
+    @media (max-width: 768px) {
+        .defeito-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+        
+        .modal-content {
+            width: 95%;
+            margin: 2% auto;
+        }
+    }
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="container-fluid">
-    <div class="saudacao">
-        <h3>Painel de Qualidade - {{ soldador.usuario.nome_completo }}</h3>
-        <p>Aqui você pode registrar defeitos encontrados na soldagem</p>
+<div class="quality-header">
+    <h2>🔍 Painel de Qualidade</h2>
+    <p>Avaliação e registro de defeitos de soldagem</p>
+</div>
+
+<!-- Seleção de tipo de defeito -->
+<div class="form-section">
+    <h3>1. Selecione o Tipo de Defeito</h3>
+    <div class="defeito-grid">
+        {% for tipo in tipos_defeito %}
+        <button class="defeito-btn" 
+                onclick="selecionarTipoDefeito({{ tipo.id }}, '{{ tipo.nome }}')"
+                style="background: {{ tipo.cor_exibicao }};">
+            {{ tipo.nome }}
+        </button>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- Seleção de apontamento -->
+<div class="form-section">
+    <h3>2. Selecione a Soldagem Avaliada</h3>
+    <div id="apontamentosList">
+        {% for apt in apontamentos_hoje %}
+        <div class="apontamento-card" onclick="selecionarApontamento({{ apt.id }}, this)">
+            <div><strong>Soldador:</strong> {{ apt.soldador.usuario.nome_completo }}</div>
+            <div><strong>Componente:</strong> {{ apt.componente.nome }} ({{ apt.modulo.nome }})</div>
+            <div><strong>Poste/Tubo:</strong> {{ apt.numero_poste_tubo }}</div>
+            {% if apt.diametro %}
+            <div><strong>Diâmetro:</strong> {{ apt.diametro }} mm</div>
+            {% endif %}
+            <div><strong>Horário:</strong> {{ apt.inicio_processo|date:"H:i" }} - {{ apt.fim_processo|date:"H:i" }}</div>
+            <div><strong>Eficiência:</strong> {{ apt.eficiencia_calculada|floatformat:1 }}%</div>
+        </div>
+        {% empty %}
+        <p class="text-muted">Nenhum apontamento encontrado para hoje.</p>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- Formulário de defeito -->
+<div class="form-section" id="formDefeito" style="display: none;">
+    <h3>3. Dados do Defeito</h3>
+    
+    <div class="form-group">
+        <label for="tamanhoDefeito">Tamanho do defeito (mm):</label>
+        <input type="number" id="tamanhoDefeito" class="form-control" 
+               placeholder="Diâmetro do defeito em mm" 
+               oninput="calcularQualidade()" step="0.1" min="0">
     </div>
     
-    <div class="row justify-content-center">
-        <div class="col-md-8">
-            <div class="card">
-                <div class="card-header">
-                    <h5>🔍 Controle de Qualidade</h5>
-                </div>
-                <div class="card-body text-center">
-                    <p class="mb-4">Funcionalidade em desenvolvimento</p>
-                    <p>Em breve você poderá:</p>
-                    <ul class="list-unstyled">
-                        <li>• Registrar defeitos na soldagem</li>
-                        <li>• Medir área dos defeitos</li>
-                        <li>• Associar defeitos aos componentes</li>
-                        <li>• Gerar relatórios de qualidade</li>
-                    </ul>
-                </div>
-                <div class="card-footer">
-                    <button class="btn btn-secondary" onclick="voltar()">⬅ Voltar</button>
-                </div>
-            </div>
+    <div class="quality-calculator" id="calculadoraQualidade" style="display: none;">
+        <h4>📊 Cálculo de Qualidade</h4>
+        <div id="resultadosCalculo"></div>
+        <div id="indiceQualidade" class="quality-result"></div>
+    </div>
+    
+    <div class="form-group">
+        <label for="observacoesDefeito">Observações (opcional):</label>
+        <textarea id="observacoesDefeito" class="form-control" rows="3" 
+                  placeholder="Detalhes adicionais sobre o defeito..."></textarea>
+    </div>
+    
+    <div style="text-align: center;">
+        <button class="btn btn-success" onclick="registrarDefeito()">
+            📝 Registrar Defeito
+        </button>
+        <button class="btn btn-secondary" onclick="cancelarDefeito()">
+            ❌ Cancelar
+        </button>
+    </div>
+</div>
+
+<!-- Modal de confirmação -->
+<div id="modalConfirmacao" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Confirmar Registro de Defeito</h3>
+            <button class="close" onclick="fecharModal('modalConfirmacao')">&times;</button>
+        </div>
+        
+        <div id="resumoDefeito"></div>
+        
+        <div style="text-align: center;">
+            <button class="btn btn-success" onclick="confirmarRegistro()">
+                ✅ Confirmar
+            </button>
+            <button class="btn btn-secondary" onclick="fecharModal('modalConfirmacao')">
+                ❌ Cancelar
+            </button>
         </div>
     </div>
 </div>
 
+<!-- Controles de finalização -->
+<div class="form-section" style="text-align: center; margin-top: 30px;">
+    <button class="btn btn-danger" onclick="finalizarAvaliacao()">
+        🚪 Finalizar Avaliação
+    </button>
+</div>
+
 <script>
-function voltar() {
-    window.location.href = '/apontamento/';
+// Variáveis globais
+let tipoDefeitoSelecionado = null;
+let apontamentoSelecionado = null;
+let dadosApontamento = null;
+
+function selecionarTipoDefeito(id, nome) {
+    tipoDefeitoSelecionado = { id: id, nome: nome };
+    
+    // Destacar botão selecionado
+    const buttons = document.querySelectorAll('.defeito-btn');
+    buttons.forEach(btn => btn.style.border = 'none');
+    event.target.style.border = '3px solid #fff';
+    
+    verificarFormulario();
 }
+
+function selecionarApontamento(id, elemento) {
+    apontamentoSelecionado = id;
+    
+    // Destacar card selecionado
+    const cards = document.querySelectorAll('.apontamento-card');
+    cards.forEach(card => card.classList.remove('selected'));
+    elemento.classList.add('selected');
+    
+    // Buscar dados detalhados do apontamento
+    buscarDadosApontamento(id);
+    
+    verificarFormulario();
+}
+
+function buscarDadosApontamento(apontamentoId) {
+    // Simular busca de dados (em produção, fazer request para API)
+    const card = document.querySelector('.apontamento-card.selected');
+    const soldadorTexto = card.querySelector('div').textContent;
+    const componenteTexto = card.querySelectorAll('div')[1].textContent;
+    const diametroDiv = Array.from(card.querySelectorAll('div')).find(div => div.textContent.includes('Diâmetro:'));
+    
+    dadosApontamento = {
+        id: apontamentoId,
+        soldador: soldadorTexto.replace('Soldador: ', ''),
+        componente: componenteTexto.replace('Componente: ', ''),
+        diametro: diametroDiv ? parseFloat(diametroDiv.textContent.match(/(\d+(?:\.\d+)?)/)[0]) : null
+    };
+}
+
+function verificarFormulario() {
+    const form = document.getElementById('formDefeito');
+    
+    if (tipoDefeitoSelecionado && apontamentoSelecionado) {
+        form.style.display = 'block';
+        document.getElementById('tamanhoDefeito').focus();
+    } else {
+        form.style.display = 'none';
+    }
+}
+
+function calcularQualidade() {
+    const tamanho = parseFloat(document.getElementById('tamanhoDefeito').value);
+    
+    if (!tamanho || tamanho <= 0 || !dadosApontamento) {
+        document.getElementById('calculadoraQualidade').style.display = 'none';
+        return;
+    }
+    
+    // Calcular área do defeito (círculo)
+    const raio = tamanho / 2;
+    const areaDefeito = Math.PI * (raio * raio);
+    
+    // Calcular área total da peça
+    let areaTotalPeca;
+    if (dadosApontamento.diametro) {
+        const comprimentoMedio = 500; // mm
+        areaTotalPeca = Math.PI * dadosApontamento.diametro * comprimentoMedio;
+    } else {
+        areaTotalPeca = 100000; // mm² (área padrão)
+    }
+    
+    // Calcular percentual de defeito
+    const percentualDefeito = (areaDefeito / areaTotalPeca) * 100;
+    const indiceQualidade = Math.max(0, 100 - percentualDefeito);
+    
+    // Mostrar resultados
+    document.getElementById('calculadoraQualidade').style.display = 'block';
+    
+    document.getElementById('resultadosCalculo').innerHTML = `
+        <div><strong>Área do defeito:</strong> ${areaDefeito.toFixed(2)} mm²</div>
+        <div><strong>Área total:</strong> ${areaTotalPeca.toFixed(0)} mm²</div>
+        <div><strong>Percentual do defeito:</strong> ${percentualDefeito.toFixed(2)}%</div>
+    `;
+    
+    const resultDiv = document.getElementById('indiceQualidade');
+    resultDiv.textContent = `Índice de Qualidade: ${indiceQualidade.toFixed(2)}%`;
+    
+    if (indiceQualidade >= 95) {
+        resultDiv.className = 'quality-result quality-good';
+    } else if (indiceQualidade >= 85) {
+        resultDiv.className = 'quality-result quality-warning';
+    } else {
+        resultDiv.className = 'quality-result quality-danger';
+    }
+}
+
+function registrarDefeito() {
+    const tamanho = parseFloat(document.getElementById('tamanhoDefeito').value);
+    const observacoes = document.getElementById('observacoesDefeito').value;
+    
+    if (!tipoDefeitoSelecionado) {
+        alert('❌ Selecione um tipo de defeito');
+        return;
+    }
+    
+    if (!apontamentoSelecionado) {
+        alert('❌ Selecione um apontamento');
+        return;
+    }
+    
+    if (!tamanho || tamanho <= 0) {
+        alert('❌ Digite um tamanho válido para o defeito');
+        return;
+    }
+    
+    // Mostrar resumo para confirmação
+    const resumo = `
+        <div style="text-align: left; margin: 20px 0;">
+            <h4>📋 Resumo do Defeito</h4>
+            <div><strong>Tipo de Defeito:</strong> ${tipoDefeitoSelecionado.nome}</div>
+            <div><strong>Soldador:</strong> ${dadosApontamento.soldador}</div>
+            <div><strong>Componente:</strong> ${dadosApontamento.componente}</div>
+            <div><strong>Tamanho:</strong> ${tamanho} mm</div>
+            ${observacoes ? `<div><strong>Observações:</strong> ${observacoes}</div>` : ''}
+        </div>
+    `;
+    
+    document.getElementById('resumoDefeito').innerHTML = resumo;
+    abrirModal('modalConfirmacao');
+}
+
+function confirmarRegistro() {
+    const dados = {
+        tipo_defeito_id: tipoDefeitoSelecionado.id,
+        apontamento_id: apontamentoSelecionado,
+        tamanho_mm: parseFloat(document.getElementById('tamanhoDefeito').value),
+        observacoes: document.getElementById('observacoesDefeito').value
+    };
+    
+    fetch('/qualidade/registrar_defeito/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCsrfToken()
+        },
+        body: JSON.stringify(dados)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            fecharModal('modalConfirmacao');
+            alert(`✅ Defeito registrado com sucesso!\nÁrea do defeito: ${data.area_defeito.toFixed(2)} mm²`);
+            cancelarDefeito();
+        } else {
+            alert(`❌ Erro: ${data.message}`);
+        }
+    })
+    .catch(error => {
+        alert(`❌ Erro de conexão: ${error.message}`);
+    });
+}
+
+function cancelarDefeito() {
+    // Limpar seleções
+    tipoDefeitoSelecionado = null;
+    apontamentoSelecionado = null;
+    dadosApontamento = null;
+    
+    // Limpar formulário
+    document.getElementById('tamanhoDefeito').value = '';
+    document.getElementById('observacoesDefeito').value = '';
+    document.getElementById('formDefeito').style.display = 'none';
+    document.getElementById('calculadoraQualidade').style.display = 'none';
+    
+    // Limpar seleções visuais
+    const buttons = document.querySelectorAll('.defeito-btn');
+    buttons.forEach(btn => btn.style.border = 'none');
+    
+    const cards = document.querySelectorAll('.apontamento-card');
+    cards.forEach(card => card.classList.remove('selected'));
+}
+
+function finalizarAvaliacao() {
+    if (confirm('⚠️ Confirma a finalização da avaliação de qualidade?')) {
+        window.close();
+    }
+}
+
+function abrirModal(modalId) {
+    document.getElementById(modalId).style.display = 'block';
+}
+
+function fecharModal(modalId) {
+    document.getElementById(modalId).style.display = 'none';
+}
+
+function getCsrfToken() {
+    const metaTag = document.querySelector('[name=csrfmiddlewaretoken]');
+    if (metaTag) return metaTag.value;
+    
+    const cookies = document.cookie.split(';');
+    for (let cookie of cookies) {
+        const [name, value] = cookie.trim().split('=');
+        if (name === 'csrftoken') return value;
+    }
+    
+    return '';
+}
+
+// Eventos
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        const modals = document.querySelectorAll('.modal');
+        modals.forEach(modal => {
+            if (modal.style.display === 'block') {
+                modal.style.display = 'none';
+            }
+        });
+    }
+});
+
+// Fechar modal clicando fora
+window.onclick = function(event) {
+    const modals = document.querySelectorAll('.modal');
+    modals.forEach(modal => {
+        if (event.target === modal) {
+            modal.style.display = 'none';
+        }
+    });
+};
 </script>
 {% endblock %}

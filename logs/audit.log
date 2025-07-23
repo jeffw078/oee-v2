@@ -34,3 +34,5 @@ AUDIT: Jefferson | POST /admin/core/soldador/3/change/ | 127.0.0.1
 AUDIT: Jefferson | POST /login_soldador/ | 127.0.0.1
 AUDIT: Jefferson | POST /login_soldador/ | 127.0.0.1
 AUDIT: Jefferson | POST /login_soldador/ | 127.0.0.1
+AUDIT: Jefferson | POST /login_soldador/ | 127.0.0.1
+AUDIT: Jefferson | POST /login_soldador/ | 127.0.0.1

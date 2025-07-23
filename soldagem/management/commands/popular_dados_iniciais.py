@@ -4,7 +4,7 @@ from django.core.management.base import BaseCommand
 from django.db import transaction
 from soldagem.models import TipoParada
 from qualidade.models import TipoDefeito
-from core.models import Usuario, Soldador, Modulo, Componente
+from soldagem.models import Usuario, Soldador, Modulo, Componente
 
 class Command(BaseCommand):
     help = 'Popula banco de dados com dados iniciais para demonstração'

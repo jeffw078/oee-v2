@@ -2,14 +2,14 @@ from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
+from django.shortcuts import redirect
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('', include('soldagem.urls')),
+    path('', lambda request: redirect('soldagem:selecao_soldador')),
+    path('soldagem/', include('soldagem.urls')),
     path('qualidade/', include('qualidade.urls')),
-    #path('manutencao/', include('manutencao.urls')),
-    path('relatorios/', include('relatorios.urls')),
-    path('api/sync/', include('core.urls')),
+    path('core/', include('core.urls')),
 ]
 
 if settings.DEBUG:

@@ -1,9 +1,86 @@
-# soldagem/models.py - VERSÃO CORRIGIDA E COMPLETA
-
 from django.db import models
+from django.contrib.auth.models import AbstractUser
 from django.utils import timezone
 from decimal import Decimal
-from core.models import Soldador, Usuario
+
+class Usuario(AbstractUser):
+    TIPO_CHOICES = [
+        ('admin', 'Administrador'),
+        ('analista', 'Analista'),
+        ('qualidade', 'Qualidade'),
+        ('manutencao', 'Manutenção'),
+        ('soldador', 'Soldador'),
+    ]
+    
+    nome_completo = models.CharField(max_length=100)
+    tipo_usuario = models.CharField(max_length=20, choices=TIPO_CHOICES)
+    ativo = models.BooleanField(default=True)
+    data_criacao = models.DateTimeField(auto_now_add=True)
+    ultimo_login = models.DateTimeField(null=True, blank=True)
+
+    # Corrigir conflitos de relacionamento
+    groups = models.ManyToManyField(
+        'auth.Group',
+        verbose_name='groups',
+        blank=True,
+        help_text='The groups this user belongs to.',
+        related_name='soldagem_usuario_set',
+        related_query_name='soldagem_usuario',
+    )
+    user_permissions = models.ManyToManyField(
+        'auth.Permission',
+        verbose_name='user permissions',
+        blank=True,
+        help_text='Specific permissions for this user.',
+        related_name='soldagem_usuario_set',
+        related_query_name='soldagem_usuario',
+    )
+
+    def __str__(self):
+        return self.nome_completo
+
+class Soldador(models.Model):
+    usuario = models.OneToOneField(Usuario, on_delete=models.CASCADE)
+    senha_simplificada = models.CharField(max_length=10)
+    ativo = models.BooleanField(default=True)
+    data_cadastro = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Soldador"
+        verbose_name_plural = "Soldadores"
+
+    def __str__(self):
+        return self.usuario.nome_completo
+
+class Modulo(models.Model):
+    nome = models.CharField(max_length=50, unique=True)
+    descricao = models.TextField(blank=True)
+    ativo = models.BooleanField(default=True)
+    ordem_exibicao = models.IntegerField(default=0)
+    data_criacao = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['ordem_exibicao', 'nome']
+        verbose_name = "Módulo"
+        verbose_name_plural = "Módulos"
+
+    def __str__(self):
+        return self.nome
+
+class Componente(models.Model):
+    nome = models.CharField(max_length=100, unique=True)
+    descricao = models.TextField(blank=True)
+    tempo_padrao = models.DecimalField(max_digits=8, decimal_places=2, help_text="Tempo padrão em minutos")
+    considera_diametro = models.BooleanField(default=False)
+    formula_calculo = models.TextField(blank=True, help_text="Fórmula para cálculo quando considera diâmetro")
+    ativo = models.BooleanField(default=True)
+    data_criacao = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['nome']
+
+    def __str__(self):
+        return self.nome
 
 class Pedido(models.Model):
     STATUS_CHOICES = [
@@ -12,46 +89,18 @@ class Pedido(models.Model):
         ('cancelado', 'Cancelado'),
     ]
     
-    numero = models.CharField(max_length=100, unique=True)
+    numero = models.CharField(max_length=50, unique=True)
     descricao = models.TextField(blank=True)
-    data_criacao = models.DateTimeField(default=timezone.now)
+    data_criacao = models.DateTimeField(auto_now_add=True)
     data_prevista = models.DateField(null=True, blank=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='ativo')
     observacoes = models.TextField(blank=True)
-    
+
     class Meta:
         ordering = ['-data_criacao']
-    
-    def __str__(self):
-        return f"Pedido {self.numero}"
 
-class Modulo(models.Model):
-    nome = models.CharField(max_length=100)
-    descricao = models.TextField(blank=True)
-    ativo = models.BooleanField(default=True)
-    ordem_exibicao = models.IntegerField(default=0)
-    data_criacao = models.DateTimeField(default=timezone.now)
-    
-    class Meta:
-        ordering = ['ordem_exibicao', 'nome']
-    
     def __str__(self):
-        return self.nome
-
-class Componente(models.Model):
-    nome = models.CharField(max_length=150)
-    descricao = models.TextField(blank=True)
-    tempo_padrao = models.DecimalField(max_digits=10, decimal_places=2)  # em minutos
-    considera_diametro = models.BooleanField(default=False)
-    formula_calculo = models.TextField(blank=True, help_text="Fórmula para calcular tempo com diâmetro (use 'diametro' como variável)")
-    ativo = models.BooleanField(default=True)
-    data_criacao = models.DateTimeField(default=timezone.now)
-    
-    class Meta:
-        ordering = ['nome']
-    
-    def __str__(self):
-        return self.nome
+        return self.numero
 
 class Turno(models.Model):
     STATUS_CHOICES = [
@@ -63,13 +112,13 @@ class Turno(models.Model):
     data_turno = models.DateField()
     inicio_turno = models.DateTimeField()
     fim_turno = models.DateTimeField(null=True, blank=True)
-    horas_disponiveis = models.DecimalField(max_digits=5, decimal_places=2, default=8)
+    horas_disponiveis = models.DecimalField(max_digits=4, decimal_places=2, default=8.0)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='ativo')
-    
+
     class Meta:
         ordering = ['-data_turno', '-inicio_turno']
-        unique_together = ['soldador', 'data_turno']
-    
+        unique_together = ['soldador', 'data_turno', 'status']
+
     def __str__(self):
         return f"{self.soldador} - {self.data_turno}"
 
@@ -78,105 +127,72 @@ class Apontamento(models.Model):
     modulo = models.ForeignKey(Modulo, on_delete=models.CASCADE)
     componente = models.ForeignKey(Componente, on_delete=models.CASCADE)
     pedido = models.ForeignKey(Pedido, on_delete=models.CASCADE)
-    numero_poste_tubo = models.CharField(max_length=100)
+    numero_poste_tubo = models.CharField(max_length=50)
     diametro = models.DecimalField(max_digits=8, decimal_places=2, null=True, blank=True)
     inicio_processo = models.DateTimeField()
     fim_processo = models.DateTimeField(null=True, blank=True)
-    tempo_real = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)  # em minutos
-    tempo_padrao = models.DecimalField(max_digits=10, decimal_places=2)  # em minutos
-    eficiencia_calculada = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)  # percentual
-    data_criacao = models.DateTimeField(default=timezone.now)
+    tempo_real = models.DecimalField(max_digits=8, decimal_places=2, null=True, blank=True)
+    tempo_padrao = models.DecimalField(max_digits=8, decimal_places=2)
+    eficiencia_calculada = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    data_criacao = models.DateTimeField(auto_now_add=True)
     observacoes = models.TextField(blank=True)
-    
+
     class Meta:
         ordering = ['-inicio_processo']
-    
+
     def __str__(self):
-        return f"{self.soldador} - {self.componente} - {self.inicio_processo}"
-    
-    def calcular_tempo_real(self):
-        """Calcula o tempo real em minutos"""
-        if self.fim_processo and self.inicio_processo:
-            diff = self.fim_processo - self.inicio_processo
-            self.tempo_real = Decimal(str(diff.total_seconds() / 60))
-    
-    def calcular_eficiencia(self):
-        """Calcula a eficiência baseada no tempo padrão vs real"""
-        if self.tempo_real and self.tempo_padrao and self.tempo_real > 0:
-            self.eficiencia_calculada = (self.tempo_padrao / self.tempo_real) * 100
-        else:
-            self.eficiencia_calculada = Decimal('0')
-    
-    def save(self, *args, **kwargs):
-        # Calcular automaticamente tempo real e eficiência se finalizado
-        if self.fim_processo and self.inicio_processo:
-            self.calcular_tempo_real()
-            self.calcular_eficiencia()
-        super().save(*args, **kwargs)
+        return f"{self.soldador} - {self.componente} - {self.inicio_processo.strftime('%d/%m/%Y %H:%M')}"
 
 class TipoParada(models.Model):
-    CATEGORIAS = [
+    CATEGORIA_CHOICES = [
         ('geral', 'Geral'),
         ('manutencao', 'Manutenção'),
         ('qualidade', 'Qualidade'),
     ]
     
-    nome = models.CharField(max_length=150)
-    categoria = models.CharField(max_length=20, choices=CATEGORIAS)
-    penaliza_oee = models.BooleanField(default=True, help_text="Se False, ajusta horas disponíveis em vez de penalizar OEE")
-    requer_senha_especial = models.BooleanField(default=False, help_text="Requer senha de qualidade ou manutenção")
+    nome = models.CharField(max_length=100, unique=True)
+    categoria = models.CharField(max_length=20, choices=CATEGORIA_CHOICES)
+    penaliza_oee = models.BooleanField(default=True)
+    requer_senha_especial = models.BooleanField(default=False)
     ativo = models.BooleanField(default=True)
-    cor_exibicao = models.CharField(max_length=7, default='#dc3545', help_text="Cor em hexadecimal para exibição")
-    
+    cor_exibicao = models.CharField(max_length=7, default='#6c757d')
+
     class Meta:
         ordering = ['categoria', 'nome']
-        verbose_name = 'Tipo de Parada'
-        verbose_name_plural = 'Tipos de Paradas'
-    
+
     def __str__(self):
         return f"{self.nome} ({self.get_categoria_display()})"
 
 class Parada(models.Model):
     tipo_parada = models.ForeignKey(TipoParada, on_delete=models.CASCADE)
     soldador = models.ForeignKey(Soldador, on_delete=models.CASCADE)
-    apontamento = models.ForeignKey(Apontamento, on_delete=models.CASCADE, null=True, blank=True, help_text="Apontamento interrompido pela parada")
+    apontamento = models.ForeignKey(Apontamento, on_delete=models.CASCADE, null=True, blank=True)
     inicio = models.DateTimeField()
     fim = models.DateTimeField(null=True, blank=True)
-    duracao_minutos = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
-    motivo_detalhado = models.TextField(blank=True, help_text="Descrição detalhada do motivo da parada")
-    usuario_autorizacao = models.ForeignKey(Usuario, on_delete=models.SET_NULL, null=True, blank=True, help_text="Usuário que autorizou a parada (qualidade/manutenção)")
-    data_criacao = models.DateTimeField(default=timezone.now)
-    
+    duracao_minutos = models.DecimalField(max_digits=8, decimal_places=2, null=True, blank=True)
+    motivo_detalhado = models.TextField(blank=True)
+    usuario_autorizacao = models.ForeignKey(Usuario, on_delete=models.SET_NULL, null=True, blank=True)
+    data_criacao = models.DateTimeField(auto_now_add=True)
+
     class Meta:
         ordering = ['-inicio']
-        verbose_name = 'Parada'
-        verbose_name_plural = 'Paradas'
-    
+
     def __str__(self):
-        return f"{self.soldador} - {self.tipo_parada} - {self.inicio}"
-    
-    def calcular_duracao(self):
-        """Calcula a duração da parada em minutos"""
-        if self.fim and self.inicio:
-            diff = self.fim - self.inicio
-            self.duracao_minutos = Decimal(str(diff.total_seconds() / 60))
-    
-    def save(self, *args, **kwargs):
-        # Calcular automaticamente duração se finalizada
-        if self.fim and self.inicio:
-            self.calcular_duracao()
-        super().save(*args, **kwargs)
-    
-    @property
-    def duracao_formatada(self):
-        """Retorna duração formatada em HH:MM"""
-        if self.duracao_minutos:
-            horas = int(self.duracao_minutos // 60)
-            minutos = int(self.duracao_minutos % 60)
-            return f"{horas:02d}:{minutos:02d}"
-        return "00:00"
-    
-    @property
-    def em_andamento(self):
-        """Verifica se a parada está em andamento"""
-        return self.fim is None
+        return f"{self.tipo_parada} - {self.soldador} - {self.inicio.strftime('%d/%m/%Y %H:%M')}"
+
+class LogAuditoria(models.Model):
+    usuario = models.ForeignKey(Usuario, on_delete=models.SET_NULL, null=True, blank=True)
+    acao = models.CharField(max_length=100)
+    tabela_afetada = models.CharField(max_length=50)
+    registro_id = models.IntegerField()
+    dados_antes = models.JSONField(null=True, blank=True)
+    dados_depois = models.JSONField(null=True, blank=True)
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    user_agent = models.TextField(blank=True)
+    timestamp = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-timestamp']
+
+    def __str__(self):
+        return f"{self.acao} - {self.timestamp.strftime('%d/%m/%Y %H:%M:%S')}"

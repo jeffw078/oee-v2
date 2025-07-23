@@ -1,24 +1,23 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth import authenticate, login, logout
+from django.contrib import messages
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.utils import timezone
-from django.contrib import messages
 from django.db import transaction
 import json
-import pytz
+from datetime import timedelta, datetime
 
-from core.models import Soldador, Usuario, LogAuditoria
-try:
-    from core.models import Modulo, Componente
-except ImportError:
-    from .models import Modulo, Componente
-
-from .models import Pedido, Apontamento, TipoParada, Parada, Turno
-from qualidade.models import TipoDefeito, Defeito
+# IMPORTAR TODOS OS MODELOS DO MESMO APP
+from .models import (
+    Usuario, Soldador, Modulo, Componente, Pedido, 
+    Turno, Apontamento, TipoParada, Parada, LogAuditoria
+)
+# ==================== VIEWS PRINCIPAIS ====================
 
 def selecao_soldador(request):
-    """Tela de seleção de soldador"""
+    """Tela inicial de seleção de soldador"""
     soldadores = Soldador.objects.filter(ativo=True).order_by('usuario__nome_completo')
     return render(request, 'soldagem/selecao_soldador.html', {'soldadores': soldadores})
 
@@ -33,51 +32,50 @@ def login_soldador(request):
         soldador_id = data.get('soldador_id')
         senha = data.get('senha')
         
+        if not soldador_id or not senha:
+            return JsonResponse({'success': False, 'message': 'Soldador e senha são obrigatórios'}, status=400)
+        
         soldador = get_object_or_404(Soldador, id=soldador_id, ativo=True)
         
-        if soldador.senha_simplificada == senha:
-            # Criar ou atualizar turno
-            hoje = timezone.now().date()
-            turno, created = Turno.objects.get_or_create(
-                soldador=soldador,
-                data_turno=hoje,
-                defaults={
-                    'inicio_turno': timezone.now(),
-                    'horas_disponiveis': 8,
-                    'status': 'ativo'
-                }
-            )
-            
-            if not created and turno.status == 'finalizado':
-                turno.status = 'ativo'
-                turno.save()
-            
-            # Salvar na sessão
-            request.session['soldador_id'] = soldador.id
-            request.session['turno_id'] = turno.id
-            request.session.save()
-            
-            # Log de auditoria
-            LogAuditoria.objects.create(
-                usuario=soldador.usuario,
-                acao='LOGIN_SOLDADOR',
-                tabela_afetada='Soldador',
-                registro_id=soldador.id,
-                dados_depois={'soldador': soldador.usuario.nome_completo}
-            )
-            
-            return JsonResponse({
-                'success': True,
-                'redirect': '/apontamento/',
-                'soldador_nome': soldador.usuario.nome_completo
-            })
-        else:
+        if soldador.senha_simplificada != senha:
             return JsonResponse({'success': False, 'message': 'Senha incorreta'}, status=401)
-            
+        
+        # Criar ou buscar turno ativo
+        hoje = timezone.now().date()
+        turno, created = Turno.objects.get_or_create(
+            soldador=soldador,
+            data_turno=hoje,
+            status='ativo',
+            defaults={
+                'inicio_turno': timezone.now(),
+                'horas_disponiveis': 8.0
+            }
+        )
+        
+        # Salvar na sessão
+        request.session['soldador_id'] = soldador.id
+        request.session['turno_id'] = turno.id
+        request.session.save()
+        
+        # Log de auditoria
+        LogAuditoria.objects.create(
+            usuario=soldador.usuario,
+            acao='LOGIN_SOLDADOR',
+            tabela_afetada='Soldador',
+            registro_id=soldador.id,
+            dados_depois={'turno_criado': created}
+        )
+        
+        return JsonResponse({
+            'success': True,
+            'soldador_nome': soldador.usuario.nome_completo,
+            'turno_id': turno.id
+        })
+        
     except json.JSONDecodeError:
         return JsonResponse({'success': False, 'message': 'JSON inválido'}, status=400)
     except Exception as e:
-        return JsonResponse({'success': False, 'message': f'Erro interno: {str(e)}'}, status=500)
+        return JsonResponse({'success': False, 'message': str(e)}, status=500)
 
 def apontamento(request):
     """Tela principal de apontamento"""
@@ -86,59 +84,87 @@ def apontamento(request):
         return redirect('soldagem:selecao_soldador')
     
     soldador = get_object_or_404(Soldador, id=soldador_id)
-    
-    # Importar Modulo do local correto
-    try:
-        from core.models import Modulo
-        modulos = Modulo.objects.filter(ativo=True).order_by('ordem_exibicao')
-    except ImportError:
-        # Fallback se Modulo estiver em soldagem.models
-        modulos = Modulo.objects.filter(ativo=True).order_by('ordem_exibicao')
+    modulos = Modulo.objects.filter(ativo=True).order_by('ordem_exibicao')
     
     # Verificar se há apontamento em andamento
-    apontamento_atual = Apontamento.objects.filter(
+    apontamento_ativo = Apontamento.objects.filter(
         soldador=soldador,
         fim_processo__isnull=True
     ).first()
     
     # Verificar se há parada em andamento
-    parada_atual = Parada.objects.filter(
+    parada_ativa = Parada.objects.filter(
         soldador=soldador,
         fim__isnull=True
     ).first()
     
-    # Saudação baseada no horário brasileiro
-    tz_sp = pytz.timezone('America/Sao_Paulo')
-    now_sp = timezone.now().astimezone(tz_sp)
-    
-    if now_sp.hour < 12:
-        saudacao = "Bom dia"
-    elif now_sp.hour < 18:
-        saudacao = "Boa tarde"
-    else:
-        saudacao = "Boa noite"
-    
     context = {
         'soldador': soldador,
         'modulos': modulos,
-        'saudacao': saudacao,
-        'apontamento_atual': apontamento_atual,
-        'parada_atual': parada_atual,
-        'now': now_sp
+        'apontamento_ativo': apontamento_ativo,
+        'parada_ativa': parada_ativa,
+        'agora': timezone.now(),
     }
     
     return render(request, 'soldagem/apontamento.html', context)
+
+def finalizar_turno(request):
+    """Finaliza turno do soldador"""
+    soldador_id = request.session.get('soldador_id')
+    turno_id = request.session.get('turno_id')
+    
+    if soldador_id and turno_id:
+        try:
+            # Finalizar apontamentos em aberto
+            Apontamento.objects.filter(
+                soldador_id=soldador_id,
+                fim_processo__isnull=True
+            ).update(fim_processo=timezone.now())
+            
+            # Finalizar paradas em aberto
+            Parada.objects.filter(
+                soldador_id=soldador_id,
+                fim__isnull=True
+            ).update(fim=timezone.now())
+            
+            # Finalizar turno
+            turno = Turno.objects.get(id=turno_id)
+            turno.fim_turno = timezone.now()
+            turno.status = 'finalizado'
+            turno.save()
+            
+            # Log de auditoria
+            LogAuditoria.objects.create(
+                usuario_id=soldador_id,
+                acao='FINALIZAR_TURNO',
+                tabela_afetada='Turno',
+                registro_id=turno.id,
+                dados_depois={
+                    'fim_turno': turno.fim_turno.isoformat(),
+                    'duracao_horas': float((turno.fim_turno - turno.inicio_turno).total_seconds() / 3600)
+                }
+            )
+            
+        except Exception as e:
+            messages.error(request, f'Erro ao finalizar turno: {str(e)}')
+    
+    # Limpar sessão
+    request.session.flush()
+    return redirect('soldagem:selecao_soldador')
+
+# ==================== APIS DE APONTAMENTO ====================
+
 @csrf_exempt
 def iniciar_modulo(request):
-    """Inicia processo de seleção de componente do módulo"""
+    """Inicia seleção de módulo e captura dados do pedido"""
     if request.method != 'POST':
         return JsonResponse({'success': False, 'message': 'Método não permitido'}, status=405)
     
     try:
         data = json.loads(request.body.decode('utf-8'))
         modulo_id = data.get('modulo_id')
-        pedido_numero = data.get('pedido')
-        poste_numero = data.get('poste')
+        pedido_numero = data.get('pedido_numero')
+        poste_numero = data.get('poste_numero')
         
         soldador_id = request.session.get('soldador_id')
         if not soldador_id:
@@ -146,7 +172,7 @@ def iniciar_modulo(request):
         
         # Buscar módulo
         try:
-            modulo = Modulo.objects.get(id=modulo_id)
+            modulo = Modulo.objects.get(id=modulo_id, ativo=True)
         except Modulo.DoesNotExist:
             return JsonResponse({'success': False, 'message': 'Módulo não encontrado'}, status=404)
         
@@ -203,7 +229,7 @@ def iniciar_componente(request):
         
         with transaction.atomic():
             soldador = Soldador.objects.get(id=soldador_id)
-            componente = Componente.objects.get(id=componente_id)
+            componente = Componente.objects.get(id=componente_id, ativo=True)
             modulo = Modulo.objects.get(id=request.session.get('modulo_atual'))
             pedido = Pedido.objects.get(id=request.session.get('pedido_atual'))
             
@@ -214,21 +240,18 @@ def iniciar_componente(request):
             ).first()
             
             if apontamento_existente:
-                return JsonResponse({
-                    'success': False, 
-                    'message': 'Finalize o apontamento atual primeiro'
-                })
+                return JsonResponse({'success': False, 'message': 'Já existe um apontamento em andamento'}, status=400)
             
             # Calcular tempo padrão
             tempo_padrao = componente.tempo_padrao
             if componente.considera_diametro and diametro:
-                try:
-                    if componente.formula_calculo:
+                # Aplicar fórmula baseada no diâmetro se necessário
+                if componente.formula_calculo:
+                    # Avaliar fórmula (cuidado com segurança)
+                    try:
                         tempo_padrao = eval(componente.formula_calculo.replace('diametro', str(diametro)))
-                    else:
-                        tempo_padrao = float(diametro) * 0.05
-                except:
-                    pass
+                    except:
+                        tempo_padrao = componente.tempo_padrao
             
             # Criar apontamento
             apontamento = Apontamento.objects.create(
@@ -236,21 +259,33 @@ def iniciar_componente(request):
                 modulo=modulo,
                 componente=componente,
                 pedido=pedido,
-                numero_poste_tubo=request.session.get('poste_atual', ''),
+                numero_poste_tubo=request.session.get('poste_atual'),
                 diametro=diametro if componente.considera_diametro else None,
                 inicio_processo=timezone.now(),
                 tempo_padrao=tempo_padrao
+            )
+            
+            # Log de auditoria
+            LogAuditoria.objects.create(
+                usuario=soldador.usuario,
+                acao='INICIAR_COMPONENTE',
+                tabela_afetada='Apontamento',
+                registro_id=apontamento.id,
+                dados_depois={
+                    'componente': componente.nome,
+                    'modulo': modulo.nome,
+                    'tempo_padrao': float(tempo_padrao)
+                }
             )
             
             return JsonResponse({
                 'success': True,
                 'apontamento_id': apontamento.id,
                 'componente_nome': componente.nome,
-                'tempo_padrao': float(tempo_padrao)
+                'tempo_padrao': float(tempo_padrao),
+                'inicio': apontamento.inicio_processo.strftime('%H:%M:%S')
             })
             
-    except (Soldador.DoesNotExist, Componente.DoesNotExist, Modulo.DoesNotExist, Pedido.DoesNotExist):
-        return JsonResponse({'success': False, 'message': 'Dados não encontrados'}, status=404)
     except json.JSONDecodeError:
         return JsonResponse({'success': False, 'message': 'JSON inválido'}, status=400)
     except Exception as e:
@@ -258,7 +293,7 @@ def iniciar_componente(request):
 
 @csrf_exempt
 def finalizar_componente(request):
-    """Finaliza processo de soldagem - CORRIGIDO ERRO 500"""
+    """Finaliza processo de soldagem de componente"""
     if request.method != 'POST':
         return JsonResponse({'success': False, 'message': 'Método não permitido'}, status=405)
     
@@ -277,20 +312,19 @@ def finalizar_componente(request):
                 fim_processo__isnull=True
             )
             
-            # Finalizar apontamento
+            # Finalizar processo
             apontamento.fim_processo = timezone.now()
             
-            # CORREÇÃO: Calcular tempo real e eficiência
-            if apontamento.fim_processo and apontamento.inicio_processo:
-                diff = apontamento.fim_processo - apontamento.inicio_processo
-                apontamento.tempo_real = diff.total_seconds() / 60
-                
-                # Calcular eficiência
-                if apontamento.tempo_real and apontamento.tempo_padrao and apontamento.tempo_real > 0:
-                    apontamento.eficiencia_calculada = (float(apontamento.tempo_padrao) / float(apontamento.tempo_real)) * 100
-                else:
-                    apontamento.eficiencia_calculada = 0
-                    
+            # Calcular tempo real
+            duracao = apontamento.fim_processo - apontamento.inicio_processo
+            apontamento.tempo_real = duracao.total_seconds() / 60  # em minutos
+            
+            # Calcular eficiência
+            if apontamento.tempo_real > 0:
+                apontamento.eficiencia_calculada = (apontamento.tempo_padrao / apontamento.tempo_real) * 100
+            else:
+                apontamento.eficiencia_calculada = 100
+            
             apontamento.save()
             
             # Log de auditoria
@@ -300,16 +334,16 @@ def finalizar_componente(request):
                 tabela_afetada='Apontamento',
                 registro_id=apontamento.id,
                 dados_depois={
-                    'componente': apontamento.componente.nome,
-                    'tempo_real': float(apontamento.tempo_real or 0),
-                    'eficiencia': float(apontamento.eficiencia_calculada or 0)
+                    'tempo_real': float(apontamento.tempo_real),
+                    'eficiencia': float(apontamento.eficiencia_calculada)
                 }
             )
             
             return JsonResponse({
                 'success': True,
-                'tempo_real': float(apontamento.tempo_real or 0),
-                'eficiencia': float(apontamento.eficiencia_calculada or 0)
+                'tempo_real': float(apontamento.tempo_real),
+                'eficiencia': float(apontamento.eficiencia_calculada),
+                'componente_nome': apontamento.componente.nome
             })
             
     except Apontamento.DoesNotExist:
@@ -319,11 +353,11 @@ def finalizar_componente(request):
     except Exception as e:
         return JsonResponse({'success': False, 'message': str(e)}, status=500)
 
-# ==================== FUNCIONALIDADES DE PARADAS ====================
+# ==================== APIS DE PARADAS ====================
 
 @csrf_exempt
 def iniciar_parada(request):
-    """Inicia uma parada (geral, qualidade ou manutenção)"""
+    """Inicia uma parada (geral, manutenção ou qualidade)"""
     if request.method != 'POST':
         return JsonResponse({'success': False, 'message': 'Método não permitido'}, status=405)
     
@@ -341,27 +375,6 @@ def iniciar_parada(request):
             soldador = Soldador.objects.get(id=soldador_id)
             tipo_parada = TipoParada.objects.get(id=tipo_parada_id, ativo=True)
             
-            # Verificar se requer senha especial
-            if tipo_parada.requer_senha_especial:
-                usuario_autorizacao = None
-                if tipo_parada.categoria == 'qualidade':
-                    try:
-                        from django.contrib.auth import authenticate
-                        usuario_autorizacao = authenticate(username='qualidade', password=senha_especial)
-                        if not usuario_autorizacao or usuario_autorizacao.tipo_usuario != 'qualidade':
-                            return JsonResponse({'success': False, 'message': 'Senha de qualidade inválida'})
-                    except:
-                        return JsonResponse({'success': False, 'message': 'Senha de qualidade inválida'})
-                        
-                elif tipo_parada.categoria == 'manutencao':
-                    try:
-                        from django.contrib.auth import authenticate
-                        usuario_autorizacao = authenticate(username='manutencao', password=senha_especial)
-                        if not usuario_autorizacao or usuario_autorizacao.tipo_usuario != 'manutencao':
-                            return JsonResponse({'success': False, 'message': 'Senha de manutenção inválida'})
-                    except:
-                        return JsonResponse({'success': False, 'message': 'Senha de manutenção inválida'})
-            
             # Verificar se já existe parada em andamento
             parada_existente = Parada.objects.filter(
                 soldador=soldador,
@@ -369,13 +382,36 @@ def iniciar_parada(request):
             ).first()
             
             if parada_existente:
-                return JsonResponse({
-                    'success': False, 
-                    'message': 'Finalize a parada atual primeiro'
-                })
+                return JsonResponse({'success': False, 'message': 'Já existe uma parada em andamento'}, status=400)
             
-            # Buscar apontamento em andamento (se houver)
-            apontamento_atual = Apontamento.objects.filter(
+            # Verificar senha especial se necessário
+            usuario_autorizacao = None
+            if tipo_parada.requer_senha_especial and senha_especial:
+                # Verificar se é usuário de qualidade ou manutenção
+                if tipo_parada.categoria == 'qualidade':
+                    try:
+                        usuario_qualidade = Usuario.objects.get(
+                            username=senha_especial,
+                            tipo_usuario='qualidade',
+                            ativo=True
+                        )
+                        usuario_autorizacao = usuario_qualidade
+                    except Usuario.DoesNotExist:
+                        return JsonResponse({'success': False, 'message': 'Senha de qualidade inválida'}, status=401)
+                
+                elif tipo_parada.categoria == 'manutencao':
+                    try:
+                        usuario_manutencao = Usuario.objects.get(
+                            username=senha_especial,
+                            tipo_usuario='manutencao',
+                            ativo=True
+                        )
+                        usuario_autorizacao = usuario_manutencao
+                    except Usuario.DoesNotExist:
+                        return JsonResponse({'success': False, 'message': 'Senha de manutenção inválida'}, status=401)
+            
+            # Pausar apontamento se houver um em andamento
+            apontamento_pausado = Apontamento.objects.filter(
                 soldador=soldador,
                 fim_processo__isnull=True
             ).first()
@@ -384,7 +420,7 @@ def iniciar_parada(request):
             parada = Parada.objects.create(
                 tipo_parada=tipo_parada,
                 soldador=soldador,
-                apontamento=apontamento_atual,
+                apontamento=apontamento_pausado,
                 inicio=timezone.now(),
                 motivo_detalhado=motivo_detalhado,
                 usuario_autorizacao=usuario_autorizacao
@@ -392,14 +428,14 @@ def iniciar_parada(request):
             
             # Log de auditoria
             LogAuditoria.objects.create(
-                usuario=usuario_autorizacao or soldador.usuario,
+                usuario=soldador.usuario,
                 acao='INICIAR_PARADA',
                 tabela_afetada='Parada',
                 registro_id=parada.id,
                 dados_depois={
                     'tipo_parada': tipo_parada.nome,
                     'categoria': tipo_parada.categoria,
-                    'soldador': soldador.usuario.nome_completo
+                    'motivo': motivo_detalhado
                 }
             )
             
@@ -407,11 +443,12 @@ def iniciar_parada(request):
                 'success': True,
                 'parada_id': parada.id,
                 'tipo_parada': tipo_parada.nome,
-                'categoria': tipo_parada.categoria
+                'categoria': tipo_parada.categoria,
+                'inicio': parada.inicio.strftime('%H:%M:%S')
             })
             
-    except (Soldador.DoesNotExist, TipoParada.DoesNotExist):
-        return JsonResponse({'success': False, 'message': 'Dados não encontrados'}, status=404)
+    except TipoParada.DoesNotExist:
+        return JsonResponse({'success': False, 'message': 'Tipo de parada não encontrado'}, status=404)
     except json.JSONDecodeError:
         return JsonResponse({'success': False, 'message': 'JSON inválido'}, status=400)
     except Exception as e:
@@ -419,33 +456,25 @@ def iniciar_parada(request):
 
 @csrf_exempt
 def finalizar_parada(request):
-    """Finaliza uma parada em andamento"""
+    """Finaliza parada em andamento"""
     if request.method != 'POST':
         return JsonResponse({'success': False, 'message': 'Método não permitido'}, status=405)
     
     try:
-        data = json.loads(request.body.decode('utf-8'))
-        parada_id = data.get('parada_id')
-        
         soldador_id = request.session.get('soldador_id')
         if not soldador_id:
             return JsonResponse({'success': False, 'message': 'Sessão expirada'}, status=401)
         
         with transaction.atomic():
             parada = Parada.objects.get(
-                id=parada_id,
                 soldador_id=soldador_id,
                 fim__isnull=True
             )
             
             # Finalizar parada
             parada.fim = timezone.now()
-            
-            # Calcular duração em minutos
-            if parada.fim and parada.inicio:
-                diff = parada.fim - parada.inicio
-                parada.duracao_minutos = diff.total_seconds() / 60
-                
+            duracao = parada.fim - parada.inicio
+            parada.duracao_minutos = duracao.total_seconds() / 60
             parada.save()
             
             # Log de auditoria
@@ -456,13 +485,13 @@ def finalizar_parada(request):
                 registro_id=parada.id,
                 dados_depois={
                     'tipo_parada': parada.tipo_parada.nome,
-                    'duracao_minutos': float(parada.duracao_minutos or 0)
+                    'duracao_minutos': float(parada.duracao_minutos)
                 }
             )
             
             return JsonResponse({
                 'success': True,
-                'duracao_minutos': float(parada.duracao_minutos or 0),
+                'duracao_minutos': float(parada.duracao_minutos),
                 'tipo_parada': parada.tipo_parada.nome
             })
             
@@ -509,98 +538,35 @@ def buscar_tipos_parada(request):
 # ==================== PAINÉIS ESPECÍFICOS ====================
 
 def painel_qualidade(request):
-    """Painel de qualidade"""
+    """Painel de qualidade (placeholder)"""
     soldador_id = request.session.get('soldador_id')
     if not soldador_id:
         return redirect('soldagem:selecao_soldador')
     
-    soldador = get_object_or_404(Soldador, id=soldador_id)
-    
-    # Buscar tipos de defeito ativos
-    tipos_defeito = TipoDefeito.objects.filter(ativo=True).order_by('nome')
-    
-    # Buscar apontamentos do dia atual para seleção
-    hoje = timezone.now().date()
-    apontamentos_hoje = Apontamento.objects.filter(
-        soldador=soldador,
-        inicio_processo__date=hoje,
-        fim_processo__isnull=False
-    ).select_related('componente').order_by('-inicio_processo')
-    
-    context = {
-        'soldador': soldador,
-        'tipos_defeito': tipos_defeito,
-        'apontamentos_hoje': apontamentos_hoje,
-    }
-    
-    return render(request, 'soldagem/painel_qualidade.html', context)
+    # Implementar painel de qualidade completo
+    return render(request, 'soldagem/painel_qualidade.html', {
+        'titulo': 'Painel de Qualidade',
+        'mensagem': 'Funcionalidade em desenvolvimento'
+    })
 
 def painel_paradas(request):
-    """Painel de paradas gerais"""
+    """Painel de paradas (placeholder)"""
     soldador_id = request.session.get('soldador_id')
     if not soldador_id:
         return redirect('soldagem:selecao_soldador')
     
-    soldador = get_object_or_404(Soldador, id=soldador_id)
-    
-    # Buscar tipos de parada gerais
-    tipos_parada = TipoParada.objects.filter(
-        categoria='geral',
-        ativo=True
-    ).order_by('nome')
-    
-    context = {
-        'soldador': soldador,
-        'tipos_parada': tipos_parada,
-    }
-    
-    return render(request, 'soldagem/painel_paradas.html', context)
+    return render(request, 'soldagem/painel_paradas.html', {
+        'titulo': 'Painel de Paradas',
+        'mensagem': 'Funcionalidade em desenvolvimento'
+    })
 
 def painel_manutencao(request):
-    """Painel de manutenção"""
+    """Painel de manutenção (placeholder)"""
     soldador_id = request.session.get('soldador_id')
     if not soldador_id:
         return redirect('soldagem:selecao_soldador')
     
-    soldador = get_object_or_404(Soldador, id=soldador_id)
-    
-    # Buscar tipos de parada de manutenção
-    tipos_parada = TipoParada.objects.filter(
-        categoria='manutencao',
-        ativo=True
-    ).order_by('nome')
-    
-    context = {
-        'soldador': soldador,
-        'tipos_parada': tipos_parada,
-    }
-    
-    return render(request, 'soldagem/painel_manutencao.html', context)
-
-def finalizar_turno(request):
-    """Finaliza turno do soldador"""
-    soldador_id = request.session.get('soldador_id')
-    turno_id = request.session.get('turno_id')
-    
-    if turno_id:
-        try:
-            turno = Turno.objects.get(id=turno_id)
-            turno.fim_turno = timezone.now()
-            turno.status = 'finalizado'
-            turno.save()
-            
-            # Log de auditoria
-            LogAuditoria.objects.create(
-                usuario_id=soldador_id,
-                acao='FINALIZAR_TURNO',
-                tabela_afetada='Turno',
-                registro_id=turno.id,
-                dados_depois={'fim_turno': turno.fim_turno.isoformat()}
-            )
-            
-        except Turno.DoesNotExist:
-            pass
-    
-    # Limpar sessão
-    request.session.flush()
-    return redirect('soldagem:selecao_soldador')
+    return render(request, 'soldagem/painel_manutencao.html', {
+        'titulo': 'Painel de Manutenção',
+        'mensagem': 'Funcionalidade em desenvolvimento'
+    })

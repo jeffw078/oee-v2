@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
-from .models import Usuario, Soldador, Modulo, Componente, LogAuditoria
+from soldagem.models import Usuario, Soldador, Modulo, Componente, LogAuditoria
 
 @admin.register(Usuario)
 class UsuarioAdmin(UserAdmin):

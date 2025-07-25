@@ -1,3 +1,4 @@
+from django.utils import timezone
 from django.db import models
 from soldagem.models import Usuario, Soldador, Apontamento
 import math
@@ -67,8 +68,8 @@ class InspecaoQualidade(models.Model):
         limit_choices_to={'tipo_usuario': 'qualidade'}
     )
     data_inspecao = models.DateTimeField(auto_now_add=True)
-    periodo_inicio = models.DateTimeField()
-    periodo_fim = models.DateTimeField()
+    periodo_inicio = models.DateTimeField(auto_now_add=True)
+    periodo_fim = models.DateTimeField(auto_now_add=True)
     total_pecas_inspecionadas = models.PositiveIntegerField(default=0)
     total_defeitos_encontrados = models.PositiveIntegerField(default=0)
     observacoes = models.TextField(blank=True)

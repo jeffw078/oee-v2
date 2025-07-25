@@ -1,6 +1,3 @@
-from django.shortcuts import render
-
-# Create your views here.
 from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
@@ -12,10 +9,11 @@ from datetime import datetime, date, timedelta
 from decimal import Decimal
 import json
 import math
-
 from core.models import Soldador
 from soldagem.models import Apontamento, Parada, TipoParada, Modulo, Componente, Turno
 from qualidade.models import Defeito
+import csv
+from django.http import HttpResponse
 
 @login_required
 def dashboard_principal(request):
@@ -582,3 +580,97 @@ def preparar_dados_graficos(data_inicio, data_fim, soldador_id=None, modulo_id=N
         'dados_diarios': dados_diarios,
         'periodo': f"{data_inicio.strftime('%d/%m/%Y')} - {data_fim.strftime('%d/%m/%Y')}"
     }
+
+# Adicionar em relatorios/views.py
+@login_required
+def grafico_eficiencia_dispersao(request):
+    """Gráfico de dispersão para identificar padrões de eficiência"""
+    componente_id = request.GET.get('componente')
+    periodo = int(request.GET.get('periodo', '30'))
+    
+    data_fim = timezone.now().date()
+    data_inicio = data_fim - timedelta(days=periodo)
+    
+    apontamentos = Apontamento.objects.filter(
+        inicio_processo__date__gte=data_inicio,
+        fim_processo__isnull=False
+    )
+    
+    if componente_id:
+        apontamentos = apontamentos.filter(componente_id=componente_id)
+    
+    dados_dispersao = []
+    for apt in apontamentos:
+        hora = apt.inicio_processo.hour
+        dia_semana = apt.inicio_processo.weekday()
+        
+        dados_dispersao.append({
+            'x': hora,
+            'y': float(apt.eficiencia_calculada),
+            'dia_semana': dia_semana,
+            'soldador': apt.soldador.usuario.nome_completo,
+            'componente': apt.componente.nome
+        })
+    
+    # Análise por período do dia
+    periodos = {
+        'Manhã (6h-12h)': [6, 7, 8, 9, 10, 11],
+        'Tarde (12h-18h)': [12, 13, 14, 15, 16, 17],
+        'Noite (18h-6h)': [18, 19, 20, 21, 22, 23, 0, 1, 2, 3, 4, 5]
+    }
+    
+    analise_periodos = {}
+    for periodo_nome, horas in periodos.items():
+        apts_periodo = [d for d in dados_dispersao if d['x'] in horas]
+        if apts_periodo:
+            eficiencias = [d['y'] for d in apts_periodo]
+            analise_periodos[periodo_nome] = {
+                'media': sum(eficiencias) / len(eficiencias),
+                'min': min(eficiencias),
+                'max': max(eficiencias),
+                'quantidade': len(eficiencias)
+            }
+    
+    return render(request, 'relatorios/grafico_eficiencia.html', {
+        'dados_dispersao': json.dumps(dados_dispersao),
+        'analise_periodos': analise_periodos,
+        'componentes': Componente.objects.filter(ativo=True)
+    })
+
+
+
+
+@login_required
+def exportar_relatorio_oee(request):
+    """Exporta relatório OEE para CSV"""
+    if request.user.tipo_usuario not in ['admin', 'analista']:
+        return HttpResponse('Acesso negado', status=403)
+    
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename="relatorio_oee.csv"'
+    
+    writer = csv.writer(response)
+    writer.writerow(['Data', 'Soldador', 'Módulo', 'Utilização', 'Eficiência', 'Qualidade', 'OEE'])
+    
+    # Últimos 30 dias
+    data_fim = timezone.now().date()
+    data_inicio = data_fim - timedelta(days=30)
+    
+    data_atual = data_inicio
+    while data_atual <= data_fim:
+        soldadores = Soldador.objects.filter(ativo=True)
+        for soldador in soldadores:
+            oee = calcular_oee_periodo(data_atual, data_atual, soldador.id)
+            if oee['oee'] > 0:
+                writer.writerow([
+                    data_atual.strftime('%d/%m/%Y'),
+                    soldador.usuario.nome_completo,
+                    'Todos',
+                    oee['utilizacao'],
+                    oee['eficiencia'],
+                    oee['qualidade'],
+                    oee['oee']
+                ])
+        data_atual += timedelta(days=1)
+    
+    return response

@@ -1,3 +1,4 @@
+import datetime
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django.utils import timezone
@@ -107,7 +108,7 @@ class Turno(models.Model):
     
     soldador = models.ForeignKey(Soldador, on_delete=models.CASCADE)
     data_turno = models.DateField()
-    inicio_turno = models.DateTimeField()
+    inicio_turno = models.DateTimeField(auto_now_add=True)
     fim_turno = models.DateTimeField(null=True, blank=True)
     horas_disponiveis = models.DecimalField(max_digits=5, decimal_places=2, default=8.0)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='ativo')
@@ -152,7 +153,7 @@ class Apontamento(models.Model):
     pedido = models.ForeignKey(Pedido, on_delete=models.CASCADE)
     numero_poste_tubo = models.CharField(max_length=50)
     diametro = models.DecimalField(max_digits=8, decimal_places=2, null=True, blank=True)
-    inicio_processo = models.DateTimeField()
+    inicio_processo = models.DateTimeField(auto_now_add=True)
     fim_processo = models.DateTimeField(null=True, blank=True)
     tempo_real = models.DecimalField(max_digits=8, decimal_places=2, null=True, blank=True, help_text="Tempo real em minutos")
     tempo_padrao = models.DecimalField(max_digits=8, decimal_places=2, help_text="Tempo padrão em minutos")
@@ -184,7 +185,7 @@ class Parada(models.Model):
     tipo_parada = models.ForeignKey(TipoParada, on_delete=models.CASCADE)
     soldador = models.ForeignKey(Soldador, on_delete=models.CASCADE)
     apontamento = models.ForeignKey(Apontamento, on_delete=models.CASCADE, null=True, blank=True)
-    inicio = models.DateTimeField()
+    inicio = models.DateTimeField(auto_now_add=True)
     fim = models.DateTimeField(null=True, blank=True)
     duracao_minutos = models.DecimalField(max_digits=8, decimal_places=2, null=True, blank=True)
     motivo_detalhado = models.TextField(blank=True)
@@ -258,3 +259,82 @@ class ConfiguracaoSistema(models.Model):
         elif self.tipo_dado == 'boolean':
             return self.valor.lower() in ['true', '1', 'sim', 'yes']
         return self.valor
+    
+    # Adicionar em soldagem/models.py
+class HoraTrabalho(models.Model):
+    """Cadastro de horas de trabalho por dia da semana"""
+    DIAS_SEMANA = [
+        ('seg', 'Segunda-feira'),
+        ('ter', 'Terça-feira'),
+        ('qua', 'Quarta-feira'),
+        ('qui', 'Quinta-feira'),
+        ('sex', 'Sexta-feira'),
+        ('sab', 'Sábado'),
+        ('dom', 'Domingo'),
+    ]
+    
+    nome = models.CharField(max_length=100)
+    dia_semana = models.CharField(max_length=3, choices=DIAS_SEMANA)
+    hora_inicio = models.TimeField()
+    hora_fim = models.TimeField()
+    horas_disponiveis = models.DecimalField(max_digits=4, decimal_places=2)
+    ativo = models.BooleanField(default=True)
+    
+    class Meta:
+        unique_together = ['dia_semana', 'nome']
+        ordering = ['dia_semana', 'hora_inicio']
+    
+    def save(self, *args, **kwargs):
+        # Calcular horas disponíveis automaticamente
+        inicio = datetime.combine(datetime.date.today(), self.hora_inicio)
+        fim = datetime.combine(datetime.date.today(), self.hora_fim)
+        duracao = fim - inicio
+        self.horas_disponiveis = duracao.total_seconds() / 3600
+        super().save(*args, **kwargs)
+
+        # Adicionar em soldagem/models.py
+class SessaoOffline(models.Model):
+    """Gerencia dados offline por dispositivo"""
+    dispositivo_id = models.CharField(max_length=100, unique=True)
+    soldador = models.ForeignKey(Soldador, on_delete=models.CASCADE)
+    dados_cache = models.JSONField(default=dict)
+    ultimo_sync = models.DateTimeField(auto_now=True)
+    status_conexao = models.BooleanField(default=True)
+    
+class LogSincronizacao(models.Model):
+    """Log de sincronizações"""
+    dispositivo_id = models.CharField(max_length=100)
+    tipo_operacao = models.CharField(max_length=20, choices=[
+        ('upload', 'Upload'),
+        ('download', 'Download'),
+        ('sync', 'Sincronização')
+    ])
+    tabela = models.CharField(max_length=50)
+    registros_afetados = models.IntegerField()
+    status = models.CharField(max_length=20, choices=[
+        ('sucesso', 'Sucesso'),
+        ('erro', 'Erro'),
+        ('pendente', 'Pendente')
+    ])
+    mensagem_erro = models.TextField(blank=True)
+    timestamp = models.DateTimeField(auto_now_add=True)
+
+    # Adicionar em soldagem/models.py
+class Notificacao(models.Model):
+    """Sistema de notificações"""
+    TIPOS = [
+        ('alerta', 'Alerta'),
+        ('info', 'Informação'),
+        ('sucesso', 'Sucesso'),
+        ('erro', 'Erro')
+    ]
+    
+    usuario = models.ForeignKey(Usuario, on_delete=models.CASCADE)
+    tipo = models.CharField(max_length=20, choices=TIPOS)
+    titulo = models.CharField(max_length=200)
+    mensagem = models.TextField()
+    lida = models.BooleanField(default=False)
+    data_criacao = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        ordering = ['-data_criacao']

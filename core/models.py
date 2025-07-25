@@ -1,26 +1,28 @@
+# core/models.py
 from django.db import models
 
-# NÃO DEVE HAVER NENHUM MODELO Usuario AQUI
+# Por enquanto o core não tem modelos específicos
+# Todos os modelos estão sendo centralizados no app soldagem
+# para simplificar a implementação inicial
 
-class ConfiguracaoSistema(models.Model):
+# Este arquivo pode ser expandido futuramente com:
+# - Configurações gerais do sistema
+# - Modelos de cache de relatórios
+# - Configurações de empresa
+# - Etc.
+
+class ConfiguracaoGlobal(models.Model):
+    """Configurações globais do sistema"""
     chave = models.CharField(max_length=100, unique=True)
     valor = models.TextField()
     descricao = models.TextField(blank=True)
-    tipo_dado = models.CharField(
-        max_length=20,
-        choices=[
-            ('string', 'String'),
-            ('integer', 'Integer'),
-            ('float', 'Float'),
-            ('boolean', 'Boolean'),
-        ],
-        default='string'
-    )
+    ativo = models.BooleanField(default=True)
+    data_criacao = models.DateTimeField(auto_now_add=True)
     data_atualizacao = models.DateTimeField(auto_now=True)
 
     class Meta:
-        verbose_name = "Configuração do Sistema"
-        verbose_name_plural = "Configurações do Sistema"
+        verbose_name = "Configuração Global"
+        verbose_name_plural = "Configurações Globais"
 
     def __str__(self):
-        return self.chave
+        return f"{self.chave}: {self.valor}"

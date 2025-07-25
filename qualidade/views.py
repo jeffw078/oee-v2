@@ -1,50 +1,62 @@
 from django.shortcuts import render, redirect
+from django.contrib.auth.decorators import login_required
+from django.contrib import messages
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
-from django.utils import timezone
-import json
-
-# CORRIGIR: Importar do soldagem, não do core
-from soldagem.models import Apontamento, Soldador, Usuario
-from .models import TipoDefeito, Defeito
+from .models import TipoDefeito, Defeito, InspecaoQualidade
+from soldagem.models import Soldador, Apontamento
 
 def painel_qualidade(request):
-    """Painel básico de qualidade"""
-    tipos_defeito = TipoDefeito.objects.filter(ativo=True)
-    
-    # Buscar apontamentos do dia atual
-    hoje = timezone.now().date()
-    apontamentos_hoje = Apontamento.objects.filter(
-        inicio_processo__date=hoje,
-        fim_processo__isnull=False
-    ).select_related('soldador', 'componente').order_by('-inicio_processo')
+    """Painel principal de qualidade"""
+    context = {
+        'titulo': 'Painel de Qualidade',
+        'total_defeitos': Defeito.objects.count(),
+        'total_inspecoes': InspecaoQualidade.objects.count(),
+        'defeitos_recentes': Defeito.objects.select_related(
+            'tipo_defeito', 'soldador__usuario', 'apontamento__componente'
+        ).order_by('-data_deteccao')[:10]
+    }
+    return render(request, 'qualidade/painel_qualidade.html', context)
+
+def lista_defeitos(request):
+    """Lista todos os defeitos"""
+    defeitos = Defeito.objects.select_related(
+        'tipo_defeito', 'soldador__usuario', 'apontamento__componente'
+    ).order_by('-data_deteccao')
     
     context = {
-        'tipos_defeito': tipos_defeito,
-        'apontamentos_hoje': apontamentos_hoje,
+        'titulo': 'Lista de Defeitos',
+        'defeitos': defeitos
     }
-    
-    return render(request, 'qualidade/painel.html', context)
+    return render(request, 'qualidade/lista_defeitos.html', context)
 
 @csrf_exempt
-def registrar_defeito(request):
-    """Registra defeito em componente"""
-    if request.method != 'POST':
-        return JsonResponse({'success': False, 'message': 'Método não permitido'})
+def adicionar_defeito(request):
+    """Adiciona um novo defeito"""
+    if request.method == 'POST':
+        # Implementar lógica para adicionar defeito
+        # Por enquanto, placeholder
+        messages.success(request, 'Defeito adicionado com sucesso!')
+        return redirect('qualidade:lista_defeitos')
     
-    try:
-        data = json.loads(request.body.decode('utf-8'))
-        
-        # Implementar lógica de registro de defeito
-        return JsonResponse({'success': True, 'message': 'Defeito registrado'})
-        
-    except Exception as e:
-        return JsonResponse({'success': False, 'message': str(e)})
+    tipos_defeito = TipoDefeito.objects.filter(ativo=True)
+    soldadores = Soldador.objects.filter(ativo=True)
+    
+    context = {
+        'titulo': 'Adicionar Defeito',
+        'tipos_defeito': tipos_defeito,
+        'soldadores': soldadores
+    }
+    return render(request, 'qualidade/adicionar_defeito.html', context)
 
-def buscar_apontamentos_soldador(request):
-    """Busca apontamentos de um soldador"""
-    soldador_id = request.GET.get('soldador_id')
-    data_referencia = request.GET.get('data', timezone.now().date().isoformat())
+def lista_inspecoes(request):
+    """Lista todas as inspeções"""
+    inspecoes = InspecaoQualidade.objects.select_related(
+        'soldador__usuario', 'usuario_qualidade'
+    ).order_by('-data_inspecao')
     
-    # Implementar lógica de busca
-    return JsonResponse({'success': True, 'apontamentos': []})
+    context = {
+        'titulo': 'Lista de Inspeções',
+        'inspecoes': inspecoes
+    }
+    return render(request, 'qualidade/lista_inspecoes.html', context)

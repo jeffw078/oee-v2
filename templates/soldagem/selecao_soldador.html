@@ -1,57 +1,107 @@
 <!DOCTYPE html>
-<html lang="pt-br">
+<html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Seleção de Soldador - Sistema OEE</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    {% csrf_token %}
-    
+    <title>Sistema de Apontamento OEE</title>
     <style>
-        :root {
-            --cor-primaria: #dc3545;
-            --cor-secundaria: #6c757d;
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
         }
-        
+
         body {
-            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
-            min-height: 100vh;
             font-family: 'Arial', sans-serif;
+            background-color: #f5f5f5;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
         }
-        
+
+        /* Cabeçalho vermelho */
         .header {
-            background: var(--cor-primaria);
+            background-color: #dc3545;
             color: white;
-            padding: 1rem 0;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
-            text-align: center;
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
         }
-        
-        .soldador-card {
-            background: white;
-            border-radius: 15px;
-            padding: 30px;
-            margin: 15px;
+
+        .logo {
+            background-color: white;
+            color: #dc3545;
+            padding: 8px 15px;
+            border-radius: 5px;
+            font-weight: bold;
+            font-size: 16px;
+        }
+
+        .title {
+            font-size: 22px;
+            font-weight: bold;
             text-align: center;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            flex: 1;
+        }
+
+        .clock {
+            font-size: 18px;
+            font-weight: bold;
+        }
+
+        /* Container principal */
+        .container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 40px 20px;
+            background-color: #f5f5f5;
+        }
+
+        /* Grid de soldadores */
+        .soldadores-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            max-width: 900px;
+            width: 100%;
+        }
+
+        /* Botões dos soldadores */
+        .soldador-btn {
+            background-color: #dc3545;
+            color: white;
+            border: none;
+            padding: 25px 20px;
+            font-size: 20px;
+            font-weight: bold;
+            border-radius: 8px;
             cursor: pointer;
             transition: all 0.3s ease;
-            border: 2px solid transparent;
+            box-shadow: 0 4px 8px rgba(220, 53, 69, 0.3);
+            text-transform: uppercase;
+            min-height: 80px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
-        
-        .soldador-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
-            border-color: var(--cor-primaria);
+
+        .soldador-btn:hover {
+            background-color: #c82333;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(220, 53, 69, 0.4);
         }
-        
-        .soldador-nome {
-            font-size: 1.4rem;
-            font-weight: bold;
-            color: #333;
-            margin: 0;
+
+        .soldador-btn:active {
+            transform: translateY(0);
+            box-shadow: 0 2px 4px rgba(220, 53, 69, 0.3);
         }
-        
+
+        /* Modal de senha */
         .modal {
             display: none;
             position: fixed;
@@ -60,322 +110,267 @@
             top: 0;
             width: 100%;
             height: 100%;
-            background-color: rgba(0,0,0,0.5);
+            background-color: rgba(0, 0, 0, 0.5);
         }
-        
+
         .modal-content {
             background-color: white;
             margin: 15% auto;
             padding: 30px;
-            border-radius: 15px;
+            border-radius: 10px;
             width: 90%;
             max-width: 400px;
             text-align: center;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
         }
-        
-        .modal-header {
+
+        .modal-title {
+            color: #dc3545;
+            font-size: 24px;
+            font-weight: bold;
             margin-bottom: 20px;
         }
-        
-        .form-control {
+
+        .modal-subtitle {
+            color: #666;
+            font-size: 16px;
+            margin-bottom: 25px;
+        }
+
+        .senha-input {
+            width: 100%;
             padding: 15px;
-            font-size: 1.2rem;
+            font-size: 20px;
             text-align: center;
             border: 2px solid #ddd;
-            border-radius: 10px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            letter-spacing: 3px;
         }
-        
-        .form-control:focus {
-            border-color: var(--cor-primaria);
-            box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.25);
+
+        .senha-input:focus {
+            border-color: #dc3545;
+            outline: none;
         }
-        
-        .btn-primary {
-            background: var(--cor-primaria);
-            border: none;
-            padding: 15px 30px;
-            font-size: 1.1rem;
+
+        .modal-buttons {
+            display: flex;
+            gap: 15px;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 15px;
+            font-size: 16px;
             font-weight: bold;
-            border-radius: 10px;
-            width: 100%;
-            margin-top: 15px;
-        }
-        
-        .btn-secondary {
-            background: var(--cor-secundaria);
             border: none;
-            padding: 10px 20px;
-            border-radius: 10px;
-            margin-top: 10px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
         }
-        
-        .conexao-online {
-            background: #28a745;
+
+        .btn-primary {
+            background-color: #dc3545;
             color: white;
-            padding: 8px 15px;
-            border-radius: 20px;
-            font-size: 0.9rem;
         }
-        
-        .conexao-offline {
-            background: #dc3545;
+
+        .btn-primary:hover {
+            background-color: #c82333;
+        }
+
+        .btn-secondary {
+            background-color: #6c757d;
             color: white;
-            padding: 8px 15px;
-            border-radius: 20px;
-            font-size: 0.9rem;
         }
-        
+
+        .btn-secondary:hover {
+            background-color: #545b62;
+        }
+
+        /* Loading */
         .loading {
             display: none;
             text-align: center;
-            padding: 20px;
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: white;
-            border-radius: 10px;
-            z-index: 2000;
-        }
-        
-        .spinner-border {
-            color: var(--cor-primaria);
-        }
-    </style>
-</head>
-<body>
-    <!-- Header -->
-    <div class="header">
-        <div class="container">
-            <div class="row align-items-center">
-                <div class="col">
-                    <h1 class="mb-0">Sistema de Apontamento OEE</h1>
-                    <p class="mb-0">Selecione seu usuário para iniciar</p>
-                </div>
-                <div class="col-auto">
-                    <div id="indicadorConexao" class="conexao-offline">
-                        <span id="statusConexao">Offline</span>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Conteúdo Principal -->
-    <div class="container mt-4">
-        <!-- Relógio -->
-        <div class="row mb-4">
-            <div class="col-12 text-center">
-                <div class="card bg-white">
-                    <div class="card-body">
-                        <h2 id="relogio" class="text-primary mb-0"></h2>
-                        <p id="data" class="text-muted mb-0"></p>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Grid de Soldadores -->
-        <div class="row">
-            {% for soldador in soldadores %}
-            <div class="col-md-6 col-lg-4">
-                <div class="soldador-card" onclick="selecionarSoldador({{ soldador.id }}, '{{ soldador.usuario.nome_completo }}')">
-                    <div class="soldador-nome">{{ soldador.usuario.nome_completo|title }}</div>
-                    <small class="text-muted">ID: {{ soldador.id }}</small>
-                </div>
-            </div>
-            {% empty %}
-            <div class="col-12 text-center">
-                <div class="alert alert-warning">
-                    <h4>Nenhum soldador cadastrado</h4>
-                    <p>Entre em contato com o administrador do sistema.</p>
-                </div>
-            </div>
-            {% endfor %}
-        </div>
-    </div>
-
-    <!-- Modal de Senha -->
-    <div id="modalSenha" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h4>Digite sua senha</h4>
-                <p><strong id="soldadorSelecionado">-</strong></p>
-            </div>
-            <div class="modal-body">
-                <input type="password" id="senhaInput" class="form-control" placeholder="Senha" maxlength="10" autocomplete="off">
-                <button class="btn btn-primary" onclick="confirmarLogin()">
-                    🔓 Acessar
-                </button>
-                <button class="btn btn-secondary" onclick="fecharModal()">
-                    ❌ Cancelar
-                </button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Loading -->
-    <div id="loading" class="loading">
-        <div class="spinner-border" role="status"></div>
-        <p class="mt-2">Validando acesso...</p>
-    </div>
-
-    <!-- Scripts -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
-    
-    <script>
-        // ==================== UTILITÁRIOS ====================
-        function getCsrfToken() {
-            return document.querySelector('[name=csrfmiddlewaretoken]').value;
+            color: #dc3545;
+            font-size: 18px;
+            margin-top: 20px;
         }
 
-        function mostrarCarregando(mostrar = true) {
-            const loading = document.getElementById('loading');
-            if (loading) {
-                loading.style.display = mostrar ? 'block' : 'none';
+        /* Responsivo */
+        @media (max-width: 768px) {
+            .header {
+                padding: 10px 15px;
+            }
+            
+            .title {
+                font-size: 18px;
+            }
+            
+            .clock {
+                font-size: 16px;
+            }
+            
+            .soldadores-grid {
+                grid-template-columns: 1fr;
+                gap: 15px;
+            }
+            
+            .soldador-btn {
+                font-size: 18px;
+                padding: 20px 15px;
+            }
+            
+            .modal-content {
+                margin: 25% auto;
+                padding: 20px;
             }
         }
 
-        // ==================== RELÓGIO ====================
+        /* Animações */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .soldador-btn {
+            animation: fadeIn 0.5s ease forwards;
+        }
+
+        .soldador-btn:nth-child(1) { animation-delay: 0.1s; }
+        .soldador-btn:nth-child(2) { animation-delay: 0.2s; }
+        .soldador-btn:nth-child(3) { animation-delay: 0.3s; }
+        .soldador-btn:nth-child(4) { animation-delay: 0.4s; }
+        .soldador-btn:nth-child(5) { animation-delay: 0.5s; }
+        .soldador-btn:nth-child(6) { animation-delay: 0.6s; }
+    </style>
+</head>
+<body>
+    <!-- Cabeçalho -->
+    <div class="header">
+        <div class="logo">SteelMast</div>
+        <div class="title">SISTEMA DE APONTAMENTO DE OEE</div>
+        <div class="clock" id="clock">12:49:07</div>
+    </div>
+
+    <!-- Container principal -->
+    <div class="container">
+        <div class="soldadores-grid">
+            {% for soldador in soldadores %}
+            <button class="soldador-btn" onclick="selecionarSoldador({{ soldador.id }}, '{{ soldador.usuario.nome_completo }}')">
+                {{ soldador.usuario.nome_completo|upper }}
+            </button>
+            {% endfor %}
+            
+            <!-- Botão ADM (se aplicável) -->
+            <button class="soldador-btn" onclick="window.location.href='/admin/'" style="background-color: #6c757d;">
+                ADM
+            </button>
+        </div>
+    </div>
+
+    <!-- Modal de senha -->
+    <div id="senhaModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-title">Login do Soldador</div>
+            <div class="modal-subtitle" id="soldadorNome">Nome do Soldador</div>
+            <input type="password" id="senhaInput" class="senha-input" placeholder="Digite sua senha" maxlength="10">
+            <div class="modal-buttons">
+                <button class="btn btn-secondary" onclick="fecharModal()">Cancelar</button>
+                <button class="btn btn-primary" onclick="confirmarLogin()">Entrar</button>
+            </div>
+            <div class="loading" id="loading">Verificando...</div>
+        </div>
+    </div>
+
+    <script>
+        let soldadorSelecionado = null;
+
+        // Atualizar relógio
         function atualizarRelogio() {
             const agora = new Date();
             const horas = agora.getHours().toString().padStart(2, '0');
             const minutos = agora.getMinutes().toString().padStart(2, '0');
             const segundos = agora.getSeconds().toString().padStart(2, '0');
-            
-            document.getElementById('relogio').textContent = `${horas}:${minutos}:${segundos}`;
-            
-            const opcoes = { 
-                weekday: 'long', 
-                year: 'numeric', 
-                month: 'long', 
-                day: 'numeric' 
-            };
-            document.getElementById('data').textContent = agora.toLocaleDateString('pt-BR', opcoes);
+            document.getElementById('clock').textContent = `${horas}:${minutos}:${segundos}`;
         }
-        
-        setInterval(atualizarRelogio, 1000);
+
+        // Inicializar relógio
         atualizarRelogio();
+        setInterval(atualizarRelogio, 1000);
 
-        // ==================== SELEÇÃO DE SOLDADOR ====================
-        function selecionarSoldador(soldadorId, soldadorNome) {
-            // Abrir modal de senha
-            document.getElementById('soldadorSelecionado').textContent = soldadorNome;
-            document.getElementById('modalSenha').style.display = 'block';
-            document.getElementById('senhaInput').focus();
-            
-            // Salvar dados temporariamente
-            window.soldadorSelecionado = {
-                id: soldadorId,
-                nome: soldadorNome
-            };
-            
-            // Limpar campo de senha
+        // Selecionar soldador
+        function selecionarSoldador(id, nome) {
+            soldadorSelecionado = id;
+            document.getElementById('soldadorNome').textContent = nome;
             document.getElementById('senhaInput').value = '';
+            document.getElementById('senhaModal').style.display = 'block';
+            document.getElementById('senhaInput').focus();
         }
 
+        // Fechar modal
+        function fecharModal() {
+            document.getElementById('senhaModal').style.display = 'none';
+            soldadorSelecionado = null;
+        }
+
+        // Confirmar login
         function confirmarLogin() {
             const senha = document.getElementById('senhaInput').value;
             
             if (!senha) {
-                alert('❌ Digite a senha');
-                document.getElementById('senhaInput').focus();
+                alert('Por favor, digite sua senha');
                 return;
             }
-            
-            if (!window.soldadorSelecionado) {
-                alert('❌ Nenhum soldador selecionado');
-                fecharModal();
-                return;
-            }
-            
-            mostrarCarregando(true);
-            
+
+            document.getElementById('loading').style.display = 'block';
+
+            // Enviar dados para o servidor
             fetch('/soldagem/login_soldador/', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'X-CSRFToken': getCsrfToken()
                 },
                 body: JSON.stringify({
-                    soldador_id: window.soldadorSelecionado.id,
+                    soldador_id: soldadorSelecionado,
                     senha: senha
                 })
             })
             .then(response => response.json())
             .then(data => {
-                mostrarCarregando(false);
+                document.getElementById('loading').style.display = 'none';
+                
                 if (data.success) {
-                    alert(`✅ Bem-vindo, ${data.soldador_nome}!`);
-                    window.location.href = '/soldagem/apontamento/';
+                    window.location.href = data.redirect_url;
                 } else {
-                    alert(`❌ ${data.message}`);
-                    document.getElementById('senhaInput').focus();
-                    document.getElementById('senhaInput').select();
+                    alert(data.message || 'Erro no login');
                 }
             })
             .catch(error => {
-                mostrarCarregando(false);
-                alert(`❌ Erro de conexão: ${error.message}`);
-                console.error('Erro:', error);
+                document.getElementById('loading').style.display = 'none';
+                alert('Erro de conexão: ' + error.message);
             });
         }
 
-        function fecharModal() {
-            document.getElementById('modalSenha').style.display = 'none';
-            document.getElementById('senhaInput').value = '';
-            window.soldadorSelecionado = null;
-        }
-
-        // ==================== EVENTOS ====================
-        document.addEventListener('DOMContentLoaded', function() {
-            console.log('Sistema de seleção de soldador carregado');
-            
-            // Enter no campo de senha
-            document.getElementById('senhaInput').addEventListener('keypress', function(e) {
-                if (e.key === 'Enter') {
-                    confirmarLogin();
-                }
-            });
-            
-            // ESC para fechar modal
-            document.addEventListener('keydown', function(e) {
-                if (e.key === 'Escape') {
-                    fecharModal();
-                }
-            });
-            
-            // Click fora do modal para fechar
-            document.getElementById('modalSenha').addEventListener('click', function(e) {
-                if (e.target === this) {
-                    fecharModal();
-                }
-            });
+        // Enter no input de senha
+        document.getElementById('senhaInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                confirmarLogin();
+            }
         });
 
-        // ==================== VERIFICAÇÃO DE CONEXÃO ====================
-        function verificarConexao() {
-            fetch('/soldagem/api/buscar_tipos_parada/?categoria=geral', {
-                method: 'GET',
-                cache: 'no-cache'
-            })
-            .then(response => {
-                if (response.ok) {
-                    document.getElementById('indicadorConexao').className = 'conexao-online';
-                    document.getElementById('statusConexao').textContent = 'Online';
-                } else {
-                    throw new Error('Sem conexão');
-                }
-            })
-            .catch(() => {
-                document.getElementById('indicadorConexao').className = 'conexao-offline';
-                document.getElementById('statusConexao').textContent = 'Offline';
-            });
-        }
+        // Fechar modal com ESC
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                fecharModal();
+            }
+        });
 
-        // Iniciar verificação de conexão
-        setInterval(verificarConexao, 30000); // A cada 30 segundos
-        verificarConexao(); // Verificar imediatamente
+        // Fechar modal clicando fora
+        document.getElementById('senhaModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                fecharModal();
+            }
+        });
     </script>
 </body>
 </html>

@@ -1,13 +1,17 @@
 from django.shortcuts import render
 from django.contrib.auth.decorators import login_required
+from django.http import JsonResponse
 
-# CORRIGIR: Importar do soldagem, não do core
-from soldagem.models import Usuario
+# Views do core (funcionalidades gerais)
+# Por enquanto vazio, pode ser expandido futuramente com:
+# - Dashboard geral
+# - Relatórios consolidados
+# - Configurações do sistema
+# - Etc.
 
-@login_required
-def painel_admin(request):
-    """Painel administrativo básico"""
-    return render(request, 'core/admin.html', {
-        'titulo': 'Painel Administrativo',
-        'mensagem': 'Funcionalidade em desenvolvimento'
-    })
+def dashboard_geral(request):
+    """Dashboard geral do sistema"""
+    context = {
+        'titulo': 'Dashboard Geral'
+    }
+    return render(request, 'core/dashboard.html', context)

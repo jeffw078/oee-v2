@@ -4,6 +4,6 @@ from . import views
 app_name = 'core'
 
 urlpatterns = [
-    # Por enquanto, apenas uma URL básica
-    path('admin/', views.painel_admin, name='painel_admin'),
+    # URLs do core (funcionalidades gerais)
+    # Por enquanto vazio, pode ser expandido futuramente
 ]

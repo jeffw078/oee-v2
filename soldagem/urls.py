@@ -20,6 +20,9 @@ urlpatterns = [
     path('api/finalizar_parada/', views.finalizar_parada, name='finalizar_parada'),
     path('api/buscar_tipos_parada/', views.buscar_tipos_parada, name='buscar_tipos_parada'),
     
+    # API de status
+    path('api/status_conexao/', views.status_conexao, name='status_conexao'),
+    
     # Painéis específicos
     path('painel_qualidade/', views.painel_qualidade, name='painel_qualidade'),
     path('painel_paradas/', views.painel_paradas, name='painel_paradas'),

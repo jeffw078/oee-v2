@@ -1,86 +1,258 @@
 <!DOCTYPE html>
-<html lang="pt-br">
+<html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Apontamento OEE - {{ soldador.usuario.nome_completo }}</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    {% csrf_token %}
-    
+    <title>Sistema de Apontamento OEE</title>
     <style>
-        :root {
-            --cor-primaria: #dc3545;
-            --cor-secundaria: #6c757d;
-            --cor-sucesso: #28a745;
-            --cor-aviso: #ffc107;
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
         }
-        
+
         body {
-            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
-            min-height: 100vh;
             font-family: 'Arial', sans-serif;
+            background-color: #f5f5f5;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
         }
-        
+
+        /* Cabeçalho vermelho */
         .header {
-            background: var(--cor-primaria);
+            background-color: #dc3545;
             color: white;
-            padding: 1rem 0;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
         }
-        
-        .btn-module {
-            background: #28a745;
-            border: none;
-            border-radius: 15px;
-            padding: 20px;
-            margin: 10px;
-            min-width: 200px;
-            min-height: 100px;
-            font-size: 1.2rem;
+
+        .logo {
+            background-color: white;
+            color: #dc3545;
+            padding: 8px 15px;
+            border-radius: 5px;
             font-weight: bold;
-            color: white;
-            transition: all 0.3s ease;
+            font-size: 16px;
         }
-        
-        .btn-module:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 8px 25px rgba(0,0,0,0.3);
-            background: #218838;
-            color: white;
-        }
-        
-        .btn-component {
-            background: #007bff;
-            border: none;
-            border-radius: 10px;
-            padding: 15px 25px;
-            margin: 8px;
-            color: white;
+
+        .title {
+            font-size: 22px;
             font-weight: bold;
-            transition: all 0.3s ease;
-        }
-        
-        .btn-component:hover {
-            background: #0056b3;
-            transform: translateY(-2px);
-            color: white;
-        }
-        
-        .cronometro-display {
-            background: rgba(255,255,255,0.9);
-            border-radius: 15px;
-            padding: 30px;
             text-align: center;
+            flex: 1;
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .clock {
+            font-size: 18px;
+            font-weight: bold;
+        }
+
+        .btn-sair {
+            background-color: rgba(255,255,255,0.2);
+            color: white;
+            border: 1px solid white;
+            padding: 8px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .btn-sair:hover {
+            background-color: rgba(255,255,255,0.3);
+        }
+
+        /* Saudação */
+        .saudacao {
+            background-color: #e9ecef;
+            padding: 20px;
+            text-align: center;
+            font-size: 24px;
+            font-weight: bold;
+            color: #495057;
+        }
+
+        /* Container principal */
+        .container {
+            flex: 1;
+            padding: 30px 20px;
+            background-color: #f5f5f5;
+        }
+
+        /* Informações do pedido */
+        .pedido-info {
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 18px;
+            color: #495057;
+        }
+
+        /* Estado do processo */
+        .processo-estado {
+            background-color: white;
+            border-radius: 10px;
+            padding: 25px;
+            margin-bottom: 30px;
+            text-align: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .processo-titulo {
+            font-size: 22px;
+            font-weight: bold;
+            color: #495057;
+            margin-bottom: 15px;
+        }
+
+        .processo-dados {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .processo-item {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #dc3545;
+        }
+
+        .processo-label {
+            font-size: 14px;
+            color: #6c757d;
+            margin-bottom: 5px;
+        }
+
+        .processo-valor {
+            font-size: 18px;
+            font-weight: bold;
+            color: #495057;
+        }
+
+        .cronometro {
+            font-size: 36px;
+            font-weight: bold;
+            color: #dc3545;
             margin: 20px 0;
         }
-        
-        .cronometro-time {
-            font-size: 3rem;
-            font-weight: bold;
-            color: var(--cor-primaria);
-            font-family: 'Courier New', monospace;
+
+        /* Grid de botões */
+        .botoes-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            max-width: 900px;
+            margin: 0 auto;
         }
-        
+
+        /* Botões */
+        .btn {
+            padding: 25px 20px;
+            font-size: 20px;
+            font-weight: bold;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            min-height: 80px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(0,0,0,0.2);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn-modulo {
+            background-color: #dc3545;
+            color: white;
+        }
+
+        .btn-modulo:hover {
+            background-color: #c82333;
+        }
+
+        .btn-qualidade {
+            background-color: #28a745;
+            color: white;
+        }
+
+        .btn-qualidade:hover {
+            background-color: #218838;
+        }
+
+        .btn-paradas {
+            background-color: #dc3545;
+            color: white;
+        }
+
+        .btn-paradas:hover {
+            background-color: #c82333;
+        }
+
+        .btn-finalizar {
+            background-color: #28a745;
+            color: white;
+        }
+
+        .btn-finalizar:hover {
+            background-color: #218838;
+        }
+
+        .btn-manutencao {
+            background-color: #6c757d;
+            color: white;
+        }
+
+        .btn-manutencao:hover {
+            background-color: #545b62;
+        }
+
+        .btn-pausa {
+            background-color: #6c757d;
+            color: white;
+        }
+
+        .btn-pausa:hover {
+            background-color: #545b62;
+        }
+
+        /* Status de conexão */
+        .status-conexao {
+            position: fixed;
+            top: 70px;
+            right: 20px;
+            background-color: #28a745;
+            color: white;
+            padding: 8px 12px;
+            border-radius: 5px;
+            font-size: 12px;
+            z-index: 1000;
+        }
+
+        .status-conexao.offline {
+            background-color: #dc3545;
+        }
+
+        /* Modal */
         .modal {
             display: none;
             position: fixed;
@@ -89,938 +261,684 @@
             top: 0;
             width: 100%;
             height: 100%;
-            background-color: rgba(0,0,0,0.5);
+            background-color: rgba(0, 0, 0, 0.5);
         }
-        
+
         .modal-content {
             background-color: white;
-            margin: 15% auto;
-            padding: 20px;
+            margin: 10% auto;
+            padding: 30px;
             border-radius: 10px;
             width: 90%;
             max-width: 500px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
         }
-        
-        .modal-header {
-            background: var(--cor-primaria);
-            color: white;
-            padding: 15px;
-            border-radius: 10px 10px 0 0;
-            margin: -20px -20px 20px -20px;
-        }
-        
-        .close {
-            color: white;
-            float: right;
-            font-size: 28px;
+
+        .modal-title {
+            color: #dc3545;
+            font-size: 24px;
             font-weight: bold;
-            cursor: pointer;
-        }
-        
-        .close:hover {
-            opacity: 0.7;
-        }
-        
-        .conexao-online {
-            background: #28a745;
-            color: white;
-            padding: 5px 15px;
-            border-radius: 20px;
-            font-size: 0.8rem;
-        }
-        
-        .conexao-offline {
-            background: #dc3545;
-            color: white;
-            padding: 5px 15px;
-            border-radius: 20px;
-            font-size: 0.8rem;
-        }
-        
-        .parada-ativa {
-            background: var(--cor-aviso);
-            color: #000;
-            padding: 15px;
-            border-radius: 10px;
-            margin: 15px 0;
+            margin-bottom: 20px;
             text-align: center;
-            font-weight: bold;
         }
-        
+
+        .modal-form {
+            margin-bottom: 20px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            color: #495057;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+
+        .form-input:focus {
+            border-color: #dc3545;
+            outline: none;
+        }
+
+        .form-select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+            background-color: white;
+        }
+
+        .modal-buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+        }
+
+        .btn-modal {
+            padding: 12px 25px;
+            font-size: 16px;
+            font-weight: bold;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary {
+            background-color: #dc3545;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background-color: #c82333;
+        }
+
+        .btn-secondary {
+            background-color: #6c757d;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background-color: #545b62;
+        }
+
+        /* Responsivo */
+        @media (max-width: 768px) {
+            .header {
+                padding: 10px 15px;
+            }
+            
+            .title {
+                font-size: 16px;
+            }
+            
+            .clock {
+                font-size: 14px;
+            }
+            
+            .saudacao {
+                font-size: 20px;
+                padding: 15px;
+            }
+            
+            .botoes-grid {
+                grid-template-columns: 1fr;
+                gap: 15px;
+            }
+            
+            .btn {
+                font-size: 18px;
+                padding: 20px 15px;
+                min-height: 70px;
+            }
+            
+            .processo-dados {
+                grid-template-columns: 1fr;
+            }
+            
+            .cronometro {
+                font-size: 28px;
+            }
+        }
+
+        /* Loading */
         .loading {
             display: none;
             text-align: center;
-            padding: 20px;
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: white;
-            border-radius: 10px;
-            z-index: 2000;
+            color: #dc3545;
+            font-size: 16px;
+            margin-top: 15px;
         }
-        
-        .spinner-border {
-            color: var(--cor-primaria);
+
+        /* Animações */
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+
+        .btn-ativo {
+            animation: pulse 2s infinite;
         }
     </style>
 </head>
 <body>
-    <!-- Header -->
+    <!-- Status de conexão -->
+    <div class="status-conexao" id="statusConexao">
+        ● Conectado
+    </div>
+
+    <!-- Cabeçalho -->
     <div class="header">
-        <div class="container">
-            <div class="row align-items-center">
-                <div class="col">
-                    <h1 class="mb-0">Sistema de Apontamento OEE</h1>
-                </div>
-                <div class="col-auto">
-                    <div id="indicadorConexao" class="conexao-offline">
-                        <span id="statusConexao">Offline</span>
-                    </div>
-                </div>
-                <div class="col-auto">
-                    <button class="btn btn-outline-light" onclick="finalizarTurno()">
-                        ⏹️ Sair
-                    </button>
-                </div>
-            </div>
+        <div class="logo">SteelMast</div>
+        <div class="title">Sistema de Apontamento OEE</div>
+        <div class="header-right">
+            <div class="clock" id="clock">{{ agora|date:"H:i:s" }}</div>
+            <button class="btn-sair" onclick="finalizarTurno()">⏻ SAIR</button>
         </div>
     </div>
 
-    <!-- Conteúdo Principal -->
-    <div class="container mt-4">
-        <!-- Informações do Soldador -->
-        <div class="row mb-4">
-            <div class="col-12">
-                <div class="card">
-                    <div class="card-body text-center">
-                        <h2 class="text-primary">
-                            {% now "H" as hora_atual %}
-                            {% if hora_atual|add:"0" < 12 %}
-                                Bom dia, {{ soldador.usuario.nome_completo|title }}!
-                            {% elif hora_atual|add:"0" < 18 %}
-                                Boa tarde, {{ soldador.usuario.nome_completo|title }}!
-                            {% else %}
-                                Boa noite, {{ soldador.usuario.nome_completo|title }}!
-                            {% endif %}
-                        </h2>
-                        <div class="row mt-3">
-                            <div class="col-md-6">
-                                <h4 id="relogio" class="text-dark"></h4>
-                            </div>
-                            <div class="col-md-6">
-                                <h5 class="text-muted">{{ agora|date:"d/m/Y" }}</h5>
-                            </div>
-                        </div>
-                    </div>
+    <!-- Saudação -->
+    <div class="saudacao">
+        {{ saudacao }}, {{ soldador.usuario.nome_completo|upper }}!
+    </div>
+
+    <!-- Container principal -->
+    <div class="container">
+        <!-- Estado do processo -->
+        {% if processo_ativo %}
+        <div class="processo-estado">
+            <div class="processo-titulo">Soldagem em Andamento</div>
+            <div class="processo-dados">
+                <div class="processo-item">
+                    <div class="processo-label">Pedido:</div>
+                    <div class="processo-valor">{{ processo_ativo.pedido.numero }}</div>
+                </div>
+                <div class="processo-item">
+                    <div class="processo-label">Poste/Tubo:</div>
+                    <div class="processo-valor">{{ processo_ativo.numero_poste_tubo }}</div>
+                </div>
+                <div class="processo-item">
+                    <div class="processo-label">Componente:</div>
+                    <div class="processo-valor">{{ processo_ativo.componente.nome }}</div>
+                </div>
+                <div class="processo-item">
+                    <div class="processo-label">Módulo:</div>
+                    <div class="processo-valor">{{ processo_ativo.modulo.nome }}</div>
                 </div>
             </div>
+            {% if processo_ativo.diametro %}
+            <div class="processo-item" style="max-width: 200px; margin: 0 auto 20px;">
+                <div class="processo-label">Diâmetro do tubo:</div>
+                <div class="processo-valor">{{ processo_ativo.diametro }} mm</div>
+            </div>
+            {% endif %}
+            <div class="cronometro" id="cronometro">00:00:00</div>
+            <div style="display: flex; gap: 15px; justify-content: center; flex-wrap: wrap;">
+                <button class="btn btn-finalizar" onclick="finalizarComponente()">
+                    ✓ Finalizar Atividade
+                </button>
+                <button class="btn btn-pausa" onclick="abrirModalParada('geral')">
+                    ⏸ Pausa
+                </button>
+                <button class="btn btn-qualidade" onclick="abrirModalParada('qualidade')">
+                    ✓ Qualidade
+                </button>
+                <button class="btn btn-manutencao" onclick="abrirModalParada('manutencao')">
+                    🔧 Manutenção
+                </button>
+            </div>
         </div>
-
-        <!-- Loading -->
-        <div id="loading" class="loading">
-            <div class="spinner-border" role="status"></div>
-            <p class="mt-2">Processando...</p>
+        {% elif parada_ativa %}
+        <div class="processo-estado">
+            <div class="processo-titulo">Parada em Andamento</div>
+            <div class="processo-dados">
+                <div class="processo-item">
+                    <div class="processo-label">Motivo da pausa:</div>
+                    <div class="processo-valor">{{ parada_ativa.tipo_parada.nome }}</div>
+                </div>
+            </div>
+            <div class="cronometro" id="cronometroParada">00:00:00</div>
+            <button class="btn btn-finalizar" onclick="finalizarParada()">
+                ✓ Finalizar Parada
+            </button>
         </div>
-
-        <!-- Status de Parada Ativa -->
-        {% if parada_ativa %}
-        <div class="parada-ativa">
-            ⏸️ <strong>PARADA ATIVA:</strong> {{ parada_ativa.tipo_parada.nome }}
-            <br>
-            <small>Iniciada às {{ parada_ativa.inicio|date:"H:i:s" }}</small>
-            <br>
-            <button class="btn btn-success btn-sm mt-2" onclick="finalizarParada()">
-                ▶️ Finalizar Parada
+        {% else %}
+        <div class="pedido-info">
+            <strong>Pronto para iniciar novo processo</strong>
+        </div>
+        
+        <!-- Grid de botões principais -->
+        <div class="botoes-grid">
+            {% for modulo in modulos %}
+            <button class="btn btn-modulo" onclick="selecionarModulo({{ modulo.id }}, '{{ modulo.nome }}')">
+                {{ modulo.nome }}
+            </button>
+            {% endfor %}
+            
+            <button class="btn btn-qualidade" onclick="abrirModalParada('qualidade')">
+                QUALIDADE
+            </button>
+            
+            <button class="btn btn-paradas" onclick="abrirModalParada('geral')">
+                PARADAS
             </button>
         </div>
         {% endif %}
-
-        <!-- Seção de Módulos -->
-        <div id="secaoModulos" style="display: {% if not apontamento_ativo %}block{% else %}none{% endif %};">
-            <div class="card">
-                <div class="card-header bg-primary text-white">
-                    <h4 class="mb-0">Selecionar Módulo</h4>
-                </div>
-                <div class="card-body text-center">
-                    <div class="row">
-                        {% for modulo in modulos %}
-                        <div class="col-md-6 col-lg-3">
-                            <button class="btn-module w-100" 
-                                    onclick="selecionarModulo({{ modulo.id }}, '{{ modulo.nome }}')">
-                                {{ modulo.nome }}
-                            </button>
-                        </div>
-                        {% empty %}
-                        <div class="col-12">
-                            <div class="alert alert-warning">
-                                <h5>Nenhum módulo cadastrado</h5>
-                                <p>Entre em contato com o administrador.</p>
-                            </div>
-                        </div>
-                        {% endfor %}
-                    </div>
-                    
-                    <!-- Botões de Ação -->
-                    <div class="row mt-4">
-                        <div class="col-md-3">
-                            <button class="btn btn-warning btn-lg w-100" onclick="abrirModalParada()">
-                                ⏸️ Parada
-                            </button>
-                        </div>
-                        <div class="col-md-3">
-                            <button class="btn btn-info btn-lg w-100" onclick="abrirModalQualidade()">
-                                🔍 Qualidade
-                            </button>
-                        </div>
-                        <div class="col-md-3">
-                            <button class="btn btn-secondary btn-lg w-100" onclick="abrirModalManutencao()">
-                                🔧 Manutenção
-                            </button>
-                        </div>
-                        <div class="col-md-3">
-                            <button class="btn btn-danger btn-lg w-100" onclick="finalizarTurno()">
-                                ⏹️ Finalizar Turno
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Seção de Componentes -->
-        <div id="secaoComponentes" style="display: none;">
-            <div class="card">
-                <div class="card-header bg-success text-white">
-                    <h4 class="mb-0" id="tituloComponentes">Selecionar Componente</h4>
-                </div>
-                <div class="card-body text-center">
-                    <div id="componentesContainer">
-                        <!-- Componentes serão carregados dinamicamente -->
-                    </div>
-                    <button class="btn btn-secondary mt-3" onclick="voltarParaModulos()">
-                        ← Voltar aos Módulos
-                    </button>
-                </div>
-            </div>
-        </div>
-
-        <!-- Seção de Cronômetro -->
-        <div id="secaoCronometro" style="display: {% if apontamento_ativo %}block{% else %}none{% endif %};">
-            <div class="card">
-                <div class="card-header bg-warning text-dark">
-                    <h4 class="mb-0">Soldagem em Andamento</h4>
-                </div>
-                <div class="card-body">
-                    <div class="cronometro-display">
-                        <h3 id="componenteAtual">
-                            {% if apontamento_ativo %}{{ apontamento_ativo.componente.nome }}{% endif %}
-                        </h3>
-                        <div class="cronometro-time" id="cronometro">00:00</div>
-                        <p id="tempopadrao" class="text-muted">
-                            {% if apontamento_ativo %}
-                                Tempo Padrão: {{ apontamento_ativo.tempo_padrao }} min
-                            {% endif %}
-                        </p>
-                    </div>
-                    
-                    <div class="row">
-                        <div class="col-md-4">
-                            <button class="btn btn-success btn-lg w-100" onclick="finalizarAtividade()">
-                                ✅ Finalizar Atividade
-                            </button>
-                        </div>
-                        <div class="col-md-4">
-                            <button class="btn btn-warning btn-lg w-100" onclick="abrirModalParada()">
-                                ⏸️ Pausa
-                            </button>
-                        </div>
-                        <div class="col-md-4">
-                            <button class="btn btn-info btn-lg w-100" onclick="abrirModalQualidade()">
-                                🔍 Qualidade
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
     </div>
 
-    <!-- MODAIS -->
-
-    <!-- Modal de Pedido -->
-    <div id="modalPedido" class="modal">
+    <!-- Modal de seleção de módulo -->
+    <div id="moduloModal" class="modal">
         <div class="modal-content">
-            <div class="modal-header">
-                <h5>Dados do Pedido</h5>
-                <span class="close" onclick="fecharModal('modalPedido')">&times;</span>
+            <div class="modal-title">Iniciar Processo</div>
+            <div class="modal-form">
+                <div class="form-group">
+                    <label class="form-label">Número do Pedido:</label>
+                    <input type="text" id="numeroPedido" class="form-input" placeholder="Ex: 12345">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Número do Poste/Tubo:</label>
+                    <input type="text" id="numeroPoste" class="form-input" placeholder="Ex: 001">
+                </div>
             </div>
-            <div class="form-group mb-3">
-                <label for="pedidoNumero">Número do Pedido:</label>
-                <input type="text" id="pedidoNumero" class="form-control" placeholder="Ex: 5454">
+            <div class="modal-buttons">
+                <button class="btn-modal btn-secondary" onclick="fecharModal('moduloModal')">Cancelar</button>
+                <button class="btn-modal btn-primary" onclick="confirmarModulo()">Continuar</button>
             </div>
-            <div class="form-group mb-3">
-                <label for="posteNumero">Número do Poste/Tubo:</label>
-                <input type="text" id="posteNumero" class="form-control" placeholder="Ex: 1">
-            </div>
-            <button class="btn btn-primary w-100" onclick="confirmarModulo()">Confirmar</button>
+            <div class="loading" id="loadingModulo">Carregando...</div>
         </div>
     </div>
 
-    <!-- Modal de Parada Geral -->
-    <div id="modalParada" class="modal">
+    <!-- Modal de seleção de componente -->
+    <div id="componenteModal" class="modal">
         <div class="modal-content">
-            <div class="modal-header">
-                <h5>Parada Geral</h5>
-                <span class="close" onclick="fecharModal('modalParada')">&times;</span>
+            <div class="modal-title">Selecionar Componente</div>
+            <div class="modal-form">
+                <div class="form-group">
+                    <label class="form-label">Componente:</label>
+                    <select id="componenteSelect" class="form-select">
+                        <option value="">Selecione um componente...</option>
+                    </select>
+                </div>
+                <div class="form-group" id="diametroGroup" style="display: none;">
+                    <label class="form-label">Diâmetro do tubo (mm):</label>
+                    <input type="number" id="diametroInput" class="form-input" placeholder="Ex: 50">
+                </div>
             </div>
-            <div class="form-group mb-3">
-                <label for="motivoParada">Motivo da parada:</label>
-                <select id="motivoParada" class="form-control">
-                    <option value="">Selecione um motivo</option>
-                </select>
+            <div class="modal-buttons">
+                <button class="btn-modal btn-secondary" onclick="fecharModal('componenteModal')">Cancelar</button>
+                <button class="btn-modal btn-primary" onclick="iniciarComponente()">Iniciar Soldagem</button>
             </div>
-            <div class="form-group mb-3">
-                <label for="detalheParada">Detalhes (opcional):</label>
-                <textarea id="detalheParada" class="form-control" rows="3"></textarea>
-            </div>
-            <button class="btn btn-warning w-100" onclick="iniciarParada()">Iniciar Parada</button>
+            <div class="loading" id="loadingComponente">Iniciando...</div>
         </div>
     </div>
 
-    <!-- Modal de Qualidade -->
-    <div id="modalQualidade" class="modal">
+    <!-- Modal de parada -->
+    <div id="paradaModal" class="modal">
         <div class="modal-content">
-            <div class="modal-header">
-                <h5>Acesso à Qualidade</h5>
-                <span class="close" onclick="fecharModal('modalQualidade')">&times;</span>
+            <div class="modal-title">Selecionar Parada</div>
+            <div class="modal-form">
+                <div class="form-group">
+                    <label class="form-label">Motivo da parada:</label>
+                    <select id="tipoParadaSelect" class="form-select">
+                        <option value="">Selecione o motivo...</option>
+                    </select>
+                </div>
+                <div class="form-group" id="senhaEspecialGroup" style="display: none;">
+                    <label class="form-label">Senha de autorização:</label>
+                    <input type="password" id="senhaEspecialInput" class="form-input" placeholder="Digite a senha">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Observações (opcional):</label>
+                    <input type="text" id="motivoDetalhado" class="form-input" placeholder="Detalhes sobre a parada">
+                </div>
             </div>
-            <div class="form-group mb-3">
-                <label for="senhaQualidade">Senha de Qualidade:</label>
-                <input type="password" id="senhaQualidade" class="form-control" placeholder="Digite a senha">
+            <div class="modal-buttons">
+                <button class="btn-modal btn-secondary" onclick="fecharModal('paradaModal')">Cancelar</button>
+                <button class="btn-modal btn-primary" onclick="iniciarParada()">Iniciar Parada</button>
             </div>
-            <button class="btn btn-info w-100" onclick="acessarQualidade()">Acessar</button>
+            <div class="loading" id="loadingParada">Iniciando parada...</div>
         </div>
     </div>
 
-    <!-- Modal de Manutenção -->
-    <div id="modalManutencao" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5>Manutenção</h5>
-                <span class="close" onclick="fecharModal('modalManutencao')">&times;</span>
-            </div>
-            <div class="form-group mb-3">
-                <label for="motivoManutencao">Tipo de manutenção:</label>
-                <select id="motivoManutencao" class="form-control">
-                    <option value="">Selecione um motivo</option>
-                </select>
-            </div>
-            <div class="form-group mb-3">
-                <label for="senhaManutencao">Senha de Manutenção:</label>
-                <input type="password" id="senhaManutencao" class="form-control" placeholder="Digite a senha">
-            </div>
-            <div class="form-group mb-3">
-                <label for="detalheManutencao">Detalhes:</label>
-                <textarea id="detalheManutencao" class="form-control" rows="3"></textarea>
-            </div>
-            <button class="btn btn-secondary w-100" onclick="iniciarManutencao()">Iniciar Manutenção</button>
-        </div>
-    </div>
-
-    <!-- Scripts -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
-    
     <script>
-        // ==================== VARIÁVEIS GLOBAIS ====================
-        let apontamentoAtual = {% if apontamento_ativo %}{{ apontamento_ativo.id }}{% else %}null{% endif %};
-        let paradaAtual = {% if parada_ativa %}{{ parada_ativa.id }}{% else %}null{% endif %};
-        let cronometroInterval = null;
+        // Variáveis globais
+        let moduloSelecionado = null;
+        let categoriaParadaSelecionada = null;
+        let processoAtivo = {{ processo_ativo.id|default:'null' }};
+        let paradaAtiva = {{ parada_ativa.id|default:'null' }};
+        let inicioProcesso = {% if processo_ativo %}'{{ processo_ativo.inicio_processo|date:"c" }}'{% else %}null{% endif %};
+        let inicioParada = {% if parada_ativa %}'{{ parada_ativa.inicio|date:"c" }}'{% else %}null{% endif %};
 
-        // ==================== UTILITÁRIOS ====================
-        function getCsrfToken() {
-            return document.querySelector('[name=csrfmiddlewaretoken]').value;
-        }
-
-        function formatarTempo(segundos) {
-            const horas = Math.floor(segundos / 3600);
-            const minutos = Math.floor((segundos % 3600) / 60);
-            const segs = segundos % 60;
-            
-            if (horas > 0) {
-                return `${horas.toString().padStart(2, '0')}:${minutos.toString().padStart(2, '0')}:${segs.toString().padStart(2, '0')}`;
-            }
-            return `${minutos.toString().padStart(2, '0')}:${segs.toString().padStart(2, '0')}`;
-        }
-
-        function mostrarCarregando(mostrar = true) {
-            const loading = document.getElementById('loading');
-            if (loading) {
-                loading.style.display = mostrar ? 'block' : 'none';
-            }
-        }
-
-        // ==================== RELÓGIO ====================
+        // Atualizar relógio
         function atualizarRelogio() {
             const agora = new Date();
             const horas = agora.getHours().toString().padStart(2, '0');
             const minutos = agora.getMinutes().toString().padStart(2, '0');
             const segundos = agora.getSeconds().toString().padStart(2, '0');
+            document.getElementById('clock').textContent = `${horas}:${minutos}:${segundos}`;
+        }
+
+        // Atualizar cronômetro
+        function atualizarCronometro() {
+            if (inicioProcesso && document.getElementById('cronometro')) {
+                const inicio = new Date(inicioProcesso);
+                const agora = new Date();
+                const diff = Math.floor((agora - inicio) / 1000);
+                
+                const horas = Math.floor(diff / 3600);
+                const minutos = Math.floor((diff % 3600) / 60);
+                const segundos = diff % 60;
+                
+                document.getElementById('cronometro').textContent = 
+                    `${horas.toString().padStart(2, '0')}:${minutos.toString().padStart(2, '0')}:${segundos.toString().padStart(2, '0')}`;
+            }
             
-            document.getElementById('relogio').textContent = `${horas}:${minutos}:${segundos}`;
+            if (inicioParada && document.getElementById('cronometroParada')) {
+                const inicio = new Date(inicioParada);
+                const agora = new Date();
+                const diff = Math.floor((agora - inicio) / 1000);
+                
+                const horas = Math.floor(diff / 3600);
+                const minutos = Math.floor((diff % 3600) / 60);
+                const segundos = diff % 60;
+                
+                document.getElementById('cronometroParada').textContent = 
+                    `${horas.toString().padStart(2, '0')}:${minutos.toString().padStart(2, '0')}:${segundos.toString().padStart(2, '0')}`;
+            }
+        }
+
+        // Verificar status de conexão
+        function verificarConexao() {
+            fetch('/soldagem/api/status_conexao/')
+                .then(response => response.json())
+                .then(data => {
+                    const status = document.getElementById('statusConexao');
+                    if (data.success) {
+                        status.textContent = '● Conectado';
+                        status.className = 'status-conexao';
+                    } else {
+                        status.textContent = '● Desconectado';
+                        status.className = 'status-conexao offline';
+                    }
+                })
+                .catch(error => {
+                    const status = document.getElementById('statusConexao');
+                    status.textContent = '● Desconectado';
+                    status.className = 'status-conexao offline';
+                });
+        }
+
+        // Inicializar
+        atualizarRelogio();
+        setInterval(atualizarRelogio, 1000);
+        
+        if (inicioProcesso || inicioParada) {
+            atualizarCronometro();
+            setInterval(atualizarCronometro, 1000);
         }
         
-        setInterval(atualizarRelogio, 1000);
-        atualizarRelogio();
+        verificarConexao();
+        setInterval(verificarConexao, 30000);
 
-        // ==================== MODAIS ====================
-        function abrirModal(modalId) {
-            const modal = document.getElementById(modalId);
-            if (modal) {
-                modal.style.display = 'block';
-                modal.classList.add('show');
-                
-                // Limpar campos do modal
-                const inputs = modal.querySelectorAll('input, select, textarea');
-                inputs.forEach(input => {
-                    if (input.type === 'password' || input.type === 'text') {
-                        input.value = '';
-                    } else if (input.type === 'select-one') {
-                        input.selectedIndex = 0;
-                    }
-                });
-            }
+        // Selecionar módulo
+        function selecionarModulo(id, nome) {
+            moduloSelecionado = {id: id, nome: nome};
+            document.getElementById('numeroPedido').value = '';
+            document.getElementById('numeroPoste').value = '';
+            document.getElementById('moduloModal').style.display = 'block';
         }
 
-        function fecharModal(modalId) {
-            const modal = document.getElementById(modalId);
-            if (modal) {
-                modal.style.display = 'none';
-                modal.classList.remove('show');
-            }
-        }
-
-        // ==================== SELEÇÃO DE MÓDULOS ====================
-        function selecionarModulo(moduloId, moduloNome) {
-            // Abrir modal para capturar dados do pedido
-            abrirModal('modalPedido');
-            
-            // Salvar dados temporariamente
-            window.moduloSelecionado = {
-                id: moduloId,
-                nome: moduloNome
-            };
-        }
-
+        // Confirmar módulo e buscar componentes
         function confirmarModulo() {
-            const pedidoNumero = document.getElementById('pedidoNumero').value.trim();
-            const posteNumero = document.getElementById('posteNumero').value.trim();
+            const numeroPedido = document.getElementById('numeroPedido').value;
+            const numeroPoste = document.getElementById('numeroPoste').value;
             
-            if (!pedidoNumero) {
-                alert('❌ Digite o número do pedido');
+            if (!numeroPedido || !numeroPoste) {
+                alert('Por favor, preencha todos os campos');
                 return;
             }
-            
-            if (!posteNumero) {
-                alert('❌ Digite o número do poste/tubo');
-                return;
-            }
-            
-            mostrarCarregando(true);
-            
+
+            document.getElementById('loadingModulo').style.display = 'block';
+
             fetch('/soldagem/api/iniciar_modulo/', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': getCsrfToken()
-                },
+                headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({
-                    modulo_id: window.moduloSelecionado.id,
-                    pedido_numero: pedidoNumero,
-                    poste_numero: posteNumero
+                    modulo_id: moduloSelecionado.id,
+                    numero_pedido: numeroPedido,
+                    numero_poste_tubo: numeroPoste
                 })
             })
             .then(response => response.json())
             .then(data => {
-                mostrarCarregando(false);
+                document.getElementById('loadingModulo').style.display = 'none';
+                
                 if (data.success) {
-                    fecharModal('modalPedido');
-                    mostrarComponentes(data.componentes, data.modulo_nome);
-                } else {
-                    alert(`❌ Erro: ${data.message}`);
-                }
-            })
-            .catch(error => {
-                mostrarCarregando(false);
-                alert(`❌ Erro de conexão: ${error.message}`);
-                console.error('Erro:', error);
-            });
-        }
-
-        function mostrarComponentes(componentes, moduloNome) {
-            const container = document.getElementById('componentesContainer');
-            const titulo = document.getElementById('tituloComponentes');
-            
-            if (!container || !titulo) {
-                console.error('Elementos não encontrados');
-                return;
-            }
-            
-            titulo.textContent = `Componentes - ${moduloNome}`;
-            container.innerHTML = '';
-            
-            componentes.forEach(comp => {
-                const button = document.createElement('button');
-                button.className = 'btn btn-component';
-                button.textContent = `${comp.nome} (${comp.tempo_padrao} min)`;
-                button.onclick = () => selecionarComponente(comp);
-                container.appendChild(button);
-            });
-            
-            // Mostrar seção de componentes
-            document.getElementById('secaoComponentes').style.display = 'block';
-            document.getElementById('secaoModulos').style.display = 'none';
-        }
-
-        // ==================== SELEÇÃO DE COMPONENTES ====================
-        function selecionarComponente(componente) {
-            if (componente.considera_diametro) {
-                // Solicitar diâmetro
-                const diametro = prompt(`Digite o diâmetro do tubo para ${componente.nome} (em mm):`);
-                if (!diametro || isNaN(diametro)) {
-                    alert('❌ Diâmetro inválido');
-                    return;
-                }
-                componente.diametro = parseFloat(diametro);
-            }
-            
-            mostrarCarregando(true);
-            
-            fetch('/soldagem/api/iniciar_componente/', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': getCsrfToken()
-                },
-                body: JSON.stringify({
-                    componente_id: componente.id,
-                    diametro: componente.diametro || null
-                })
-            })
-            .then(response => response.json())
-            .then(data => {
-                mostrarCarregando(false);
-                if (data.success) {
-                    iniciarCronometro(data);
-                } else {
-                    alert(`❌ Erro: ${data.message}`);
-                }
-            })
-            .catch(error => {
-                mostrarCarregando(false);
-                alert(`❌ Erro de conexão: ${error.message}`);
-                console.error('Erro:', error);
-            });
-        }
-
-        // ==================== CRONÔMETRO ====================
-        function iniciarCronometro(dados) {
-            apontamentoAtual = dados.apontamento_id;
-            
-            // Esconder seleção de módulos/componentes
-            document.getElementById('secaoModulos').style.display = 'none';
-            document.getElementById('secaoComponentes').style.display = 'none';
-            
-            // Mostrar cronômetro
-            document.getElementById('secaoCronometro').style.display = 'block';
-            document.getElementById('componenteAtual').textContent = dados.componente_nome;
-            document.getElementById('tempopadrao').textContent = `Tempo Padrão: ${dados.tempo_padrao.toFixed(1)} min`;
-            
-            // Iniciar contagem
-            const inicioTime = new Date().getTime();
-            cronometroInterval = setInterval(() => {
-                const agora = new Date().getTime();
-                const segundosDecorridos = Math.floor((agora - inicioTime) / 1000);
-                document.getElementById('cronometro').textContent = formatarTempo(segundosDecorridos);
-            }, 1000);
-        }
-
-        function finalizarAtividade() {
-            if (!apontamentoAtual) {
-                alert('❌ Nenhuma atividade em andamento');
-                return;
-            }
-            
-            if (!confirm('🔸 Confirma a finalização desta atividade?')) {
-                return;
-            }
-            
-            mostrarCarregando(true);
-            
-            fetch('/soldagem/api/finalizar_componente/', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': getCsrfToken()
-                },
-                body: JSON.stringify({
-                    apontamento_id: apontamentoAtual
-                })
-            })
-            .then(response => response.json())
-            .then(data => {
-                mostrarCarregando(false);
-                if (data.success) {
-                    // Parar cronômetro
-                    clearInterval(cronometroInterval);
+                    // Carregar componentes no modal
+                    const select = document.getElementById('componenteSelect');
+                    select.innerHTML = '<option value="">Selecione um componente...</option>';
                     
-                    alert(`✅ Atividade finalizada!\nTempo: ${data.tempo_real.toFixed(1)} min\nEficiência: ${data.eficiencia.toFixed(1)}%`);
-                    
-                    // Voltar para seleção de módulos
-                    voltarParaModulos();
-                } else {
-                    alert(`❌ Erro: ${data.message}`);
-                }
-            })
-            .catch(error => {
-                mostrarCarregando(false);
-                alert(`❌ Erro de conexão: ${error.message}`);
-                console.error('Erro:', error);
-            });
-        }
-
-        function voltarParaModulos() {
-            // Limpar dados atuais
-            apontamentoAtual = null;
-            clearInterval(cronometroInterval);
-            
-            // Esconder cronômetro
-            document.getElementById('secaoCronometro').style.display = 'none';
-            document.getElementById('secaoComponentes').style.display = 'none';
-            
-            // Mostrar módulos
-            document.getElementById('secaoModulos').style.display = 'block';
-        }
-
-        // ==================== PARADAS GERAIS ====================
-        function abrirModalParada() {
-            // Carregar tipos de parada gerais
-            fetch('/soldagem/api/buscar_tipos_parada/?categoria=geral')
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        const select = document.getElementById('motivoParada');
-                        select.innerHTML = '<option value="">Selecione um motivo</option>';
-                        
-                        data.tipos_parada.forEach(tipo => {
-                            const option = document.createElement('option');
-                            option.value = tipo.id;
-                            option.textContent = tipo.nome;
-                            select.appendChild(option);
-                        });
-                        
-                        abrirModal('modalParada');
-                    }
-                })
-                .catch(error => {
-                    alert(`❌ Erro ao carregar tipos de parada: ${error.message}`);
-                });
-        }
-
-        function iniciarParada() {
-            const tipoParadaId = document.getElementById('motivoParada').value;
-            const motivo = document.getElementById('detalheParada').value;
-            
-            if (!tipoParadaId) {
-                alert('❌ Selecione um motivo para a parada');
-                return;
-            }
-            
-            mostrarCarregando(true);
-            
-            fetch('/soldagem/api/iniciar_parada/', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': getCsrfToken()
-                },
-                body: JSON.stringify({
-                    tipo_parada_id: tipoParadaId,
-                    motivo_detalhado: motivo
-                })
-            })
-            .then(response => response.json())
-            .then(data => {
-                mostrarCarregando(false);
-                if (data.success) {
-                    fecharModal('modalParada');
-                    alert(`✅ Parada iniciada: ${data.tipo_parada}`);
-                    location.reload(); // Recarregar para mostrar status da parada
-                } else {
-                    alert(`❌ Erro: ${data.message}`);
-                }
-            })
-            .catch(error => {
-                mostrarCarregando(false);
-                alert(`❌ Erro de conexão: ${error.message}`);
-                console.error('Erro:', error);
-            });
-        }
-
-        // ==================== QUALIDADE ====================
-        function abrirModalQualidade() {
-            abrirModal('modalQualidade');
-            document.getElementById('senhaQualidade').focus();
-        }
-
-        function acessarQualidade() {
-            const senha = document.getElementById('senhaQualidade').value;
-            
-            if (!senha) {
-                alert('❌ Digite a senha de qualidade');
-                return;
-            }
-            
-            mostrarCarregando(true);
-            
-            // Buscar primeiro um tipo de parada de qualidade
-            fetch('/soldagem/api/buscar_tipos_parada/?categoria=qualidade')
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success && data.tipos_parada.length > 0) {
-                        const tipoQualidade = data.tipos_parada[0]; // Pegar primeiro tipo de qualidade
-                        
-                        return fetch('/soldagem/api/iniciar_parada/', {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'X-CSRFToken': getCsrfToken()
-                            },
-                            body: JSON.stringify({
-                                tipo_parada_id: tipoQualidade.id,
-                                senha_especial: senha
-                            })
-                        });
-                    } else {
-                        throw new Error('Nenhum tipo de parada de qualidade encontrado');
-                    }
-                })
-                .then(response => response.json())
-                .then(data => {
-                    mostrarCarregando(false);
-                    if (data.success) {
-                        fecharModal('modalQualidade');
-                        window.open('/qualidade/painel/', '_blank');
-                    } else {
-                        alert(`❌ Erro: ${data.message}`);
-                    }
-                })
-                .catch(error => {
-                    mostrarCarregando(false);
-                    alert(`❌ Erro de conexão: ${error.message}`);
-                    console.error('Erro:', error);
-                });
-        }
-
-        // ==================== MANUTENÇÃO ====================
-        function abrirModalManutencao() {
-            // Carregar tipos de parada de manutenção
-            fetch('/soldagem/api/buscar_tipos_parada/?categoria=manutencao')
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        const select = document.getElementById('motivoManutencao');
-                        select.innerHTML = '<option value="">Selecione um motivo</option>';
-                        
-                        data.tipos_parada.forEach(tipo => {
-                            const option = document.createElement('option');
-                            option.value = tipo.id;
-                            option.textContent = tipo.nome;
-                            select.appendChild(option);
-                        });
-                        
-                        abrirModal('modalManutencao');
-                        document.getElementById('senhaManutencao').focus();
-                    }
-                })
-                .catch(error => {
-                    alert(`❌ Erro ao carregar tipos de manutenção: ${error.message}`);
-                });
-        }
-
-        function iniciarManutencao() {
-            const senha = document.getElementById('senhaManutencao').value;
-            const tipoParadaId = document.getElementById('motivoManutencao').value;
-            const motivo = document.getElementById('detalheManutencao').value;
-            
-            if (!senha) {
-                alert('❌ Digite a senha de manutenção');
-                return;
-            }
-            
-            if (!tipoParadaId) {
-                alert('❌ Selecione um motivo para a manutenção');
-                return;
-            }
-            
-            mostrarCarregando(true);
-            
-            fetch('/soldagem/api/iniciar_parada/', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': getCsrfToken()
-                },
-                body: JSON.stringify({
-                    tipo_parada_id: tipoParadaId,
-                    motivo_detalhado: motivo,
-                    senha_especial: senha
-                })
-            })
-            .then(response => response.json())
-            .then(data => {
-                mostrarCarregando(false);
-                if (data.success) {
-                    fecharModal('modalManutencao');
-                    alert(`✅ Manutenção iniciada: ${data.tipo_parada}`);
-                    location.reload(); // Recarregar para mostrar status da parada
-                } else {
-                    alert(`❌ Erro: ${data.message}`);
-                }
-            })
-            .catch(error => {
-                mostrarCarregando(false);
-                alert(`❌ Erro de conexão: ${error.message}`);
-                console.error('Erro:', error);
-            });
-        }
-
-        // ==================== FINALIZAR PARADA ====================
-        function finalizarParada() {
-            if (!confirm('🔸 Confirma a finalização desta parada?')) {
-                return;
-            }
-            
-            mostrarCarregando(true);
-            
-            fetch('/soldagem/api/finalizar_parada/', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': getCsrfToken()
-                }
-            })
-            .then(response => response.json())
-            .then(data => {
-                mostrarCarregando(false);
-                if (data.success) {
-                    alert(`✅ Parada finalizada!\nDuração: ${data.duracao_minutos.toFixed(1)} minutos`);
-                    location.reload(); // Recarregar para atualizar status
-                } else {
-                    alert(`❌ Erro: ${data.message}`);
-                }
-            })
-            .catch(error => {
-                mostrarCarregando(false);
-                alert(`❌ Erro de conexão: ${error.message}`);
-                console.error('Erro:', error);
-            });
-        }
-
-        // ==================== FINALIZAR TURNO ====================
-        function finalizarTurno() {
-            if (!confirm('⚠️ Confirma a finalização do turno?\nTodos os apontamentos em andamento serão finalizados automaticamente.')) {
-                return;
-            }
-            
-            mostrarCarregando(true);
-            
-            fetch('/soldagem/finalizar_turno/', {
-                method: 'POST',
-                headers: {
-                    'X-CSRFToken': getCsrfToken()
-                }
-            })
-            .then(response => {
-                if (response.ok) {
-                    alert('✅ Turno finalizado com sucesso!');
-                    window.location.href = '/soldagem/';
-                } else {
-                    throw new Error('Erro ao finalizar turno');
-                }
-            })
-            .catch(error => {
-                mostrarCarregando(false);
-                alert(`❌ Erro: ${error.message}`);
-                console.error('Erro:', error);
-            });
-        }
-
-        // ==================== VERIFICAÇÃO DE CONEXÃO ====================
-        function verificarConexao() {
-            fetch('/soldagem/api/buscar_tipos_parada/?categoria=geral', {
-                method: 'GET',
-                cache: 'no-cache'
-            })
-            .then(response => {
-                if (response.ok) {
-                    document.getElementById('indicadorConexao').className = 'conexao-online';
-                    document.getElementById('statusConexao').textContent = 'Online';
-                } else {
-                    throw new Error('Sem conexão');
-                }
-            })
-            .catch(() => {
-                document.getElementById('indicadorConexao').className = 'conexao-offline';
-                document.getElementById('statusConexao').textContent = 'Offline';
-            });
-        }
-
-        // ==================== INICIALIZAÇÃO ====================
-        document.addEventListener('DOMContentLoaded', function() {
-            console.log('Sistema OEE carregado');
-            
-            // Iniciar cronômetro se houver apontamento ativo
-            {% if apontamento_ativo %}
-            const inicioTime = new Date('{{ apontamento_ativo.inicio_processo|date:"c" }}').getTime();
-            cronometroInterval = setInterval(() => {
-                const agora = new Date().getTime();
-                const segundosDecorridos = Math.floor((agora - inicioTime) / 1000);
-                document.getElementById('cronometro').textContent = formatarTempo(segundosDecorridos);
-            }, 1000);
-            {% endif %}
-            
-            // Verificar conexão periodicamente
-            verificarConexao();
-            setInterval(verificarConexao, 30000); // A cada 30 segundos
-            
-            // Fechar modais com ESC
-            document.addEventListener('keydown', function(e) {
-                if (e.key === 'Escape') {
-                    const modals = document.querySelectorAll('.modal[style*="block"]');
-                    modals.forEach(modal => {
-                        modal.style.display = 'none';
-                        modal.classList.remove('show');
+                    data.componentes.forEach(comp => {
+                        const option = document.createElement('option');
+                        option.value = comp.id;
+                        option.textContent = comp.nome;
+                        option.dataset.consideraDiametro = comp.considera_diametro;
+                        select.appendChild(option);
                     });
+                    
+                    // Fechar modal de módulo e abrir de componente
+                    fecharModal('moduloModal');
+                    document.getElementById('componenteModal').style.display = 'block';
+                } else {
+                    alert(data.message || 'Erro ao carregar componentes');
                 }
+            })
+            .catch(error => {
+                document.getElementById('loadingModulo').style.display = 'none';
+                alert('Erro de conexão: ' + error.message);
             });
+        }
+
+        // Verificar se componente considera diâmetro
+        document.getElementById('componenteSelect').addEventListener('change', function() {
+            const option = this.options[this.selectedIndex];
+            const consideraDiametro = option.dataset.consideraDiametro === 'true';
             
-            // Click fora do modal para fechar
-            document.addEventListener('click', function(e) {
-                if (e.target.classList.contains('modal')) {
-                    e.target.style.display = 'none';
-                    e.target.classList.remove('show');
-                }
-            });
+            document.getElementById('diametroGroup').style.display = consideraDiametro ? 'block' : 'none';
         });
 
-        // Prevenir recarregamento acidental
-        window.addEventListener('beforeunload', function(e) {
-            if (apontamentoAtual || paradaAtual) {
-                e.preventDefault();
-                e.returnValue = 'Há atividades em andamento. Tem certeza que deseja sair?';
-                return e.returnValue;
+        // Iniciar componente
+        function iniciarComponente() {
+            const componenteId = document.getElementById('componenteSelect').value;
+            const diametro = document.getElementById('diametroInput').value;
+            
+            if (!componenteId) {
+                alert('Por favor, selecione um componente');
+                return;
             }
+
+            document.getElementById('loadingComponente').style.display = 'block';
+
+            fetch('/soldagem/api/iniciar_componente/', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    componente_id: componenteId,
+                    diametro: diametro || null
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('loadingComponente').style.display = 'none';
+                
+                if (data.success) {
+                    // Recarregar página para mostrar processo ativo
+                    location.reload();
+                } else {
+                    alert(data.message || 'Erro ao iniciar componente');
+                }
+            })
+            .catch(error => {
+                document.getElementById('loadingComponente').style.display = 'none';
+                alert('Erro de conexão: ' + error.message);
+            });
+        }
+
+        // Finalizar componente
+        function finalizarComponente() {
+            if (!processoAtivo) {
+                alert('Nenhum processo ativo encontrado');
+                return;
+            }
+
+            if (confirm('Deseja finalizar este componente?')) {
+                fetch('/soldagem/api/finalizar_componente/', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        apontamento_id: processoAtivo
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        location.reload();
+                    } else {
+                        alert(data.message || 'Erro ao finalizar componente');
+                    }
+                })
+                .catch(error => {
+                    alert('Erro de conexão: ' + error.message);
+                });
+            }
+        }
+
+        // Abrir modal de parada
+        function abrirModalParada(categoria) {
+            categoriaParadaSelecionada = categoria;
+            
+            // Buscar tipos de parada
+            fetch(`/soldagem/api/buscar_tipos_parada/?categoria=${categoria}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const select = document.getElementById('tipoParadaSelect');
+                        select.innerHTML = '<option value="">Selecione o motivo...</option>';
+                        
+                        data.tipos_parada.forEach(tipo => {
+                            const option = document.createElement('option');
+                            option.value = tipo.id;
+                            option.textContent = tipo.nome;
+                            option.dataset.requerSenha = tipo.requer_senha_especial;
+                            select.appendChild(option);
+                        });
+                        
+                        document.getElementById('paradaModal').style.display = 'block';
+                    } else {
+                        alert(data.message || 'Erro ao carregar tipos de parada');
+                    }
+                })
+                .catch(error => {
+                    alert('Erro de conexão: ' + error.message);
+                });
+        }
+
+        // Verificar se tipo de parada requer senha
+        document.getElementById('tipoParadaSelect').addEventListener('change', function() {
+            const option = this.options[this.selectedIndex];
+            const requerSenha = option.dataset.requerSenha === 'true';
+            
+            document.getElementById('senhaEspecialGroup').style.display = requerSenha ? 'block' : 'none';
+        });
+
+        // Iniciar parada
+        function iniciarParada() {
+            const tipoParadaId = document.getElementById('tipoParadaSelect').value;
+            const senhaEspecial = document.getElementById('senhaEspecialInput').value;
+            const motivoDetalhado = document.getElementById('motivoDetalhado').value;
+            
+            if (!tipoParadaId) {
+                alert('Por favor, selecione o motivo da parada');
+                return;
+            }
+
+            document.getElementById('loadingParada').style.display = 'block';
+
+            fetch('/soldagem/api/iniciar_parada/', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    tipo_parada_id: tipoParadaId,
+                    senha_especial: senhaEspecial,
+                    motivo_detalhado: motivoDetalhado
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('loadingParada').style.display = 'none';
+                
+                if (data.success) {
+                    location.reload();
+                } else {
+                    alert(data.message || 'Erro ao iniciar parada');
+                }
+            })
+            .catch(error => {
+                document.getElementById('loadingParada').style.display = 'none';
+                alert('Erro de conexão: ' + error.message);
+            });
+        }
+
+        // Finalizar parada
+        function finalizarParada() {
+            if (!paradaAtiva) {
+                alert('Nenhuma parada ativa encontrada');
+                return;
+            }
+
+            if (confirm('Deseja finalizar esta parada?')) {
+                fetch('/soldagem/api/finalizar_parada/', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        parada_id: paradaAtiva
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // CORREÇÃO: Não forçar reload, apenas redirecionar
+                        window.location.href = '/soldagem/apontamento/';
+                    } else {
+                        alert(data.message || 'Erro ao finalizar parada');
+                    }
+                })
+                .catch(error => {
+                    alert('Erro de conexão: ' + error.message);
+                });
+            }
+        }
+
+        // Finalizar turno
+        function finalizarTurno() {
+            if (confirm('Deseja finalizar seu turno? Todos os processos em andamento serão finalizados.')) {
+                window.location.href = '/soldagem/finalizar_turno/';
+            }
+        }
+
+        // Fechar modal
+        function fecharModal(modalId) {
+            document.getElementById(modalId).style.display = 'none';
+        }
+
+        // Fechar modais com ESC
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                fecharModal('moduloModal');
+                fecharModal('componenteModal');
+                fecharModal('paradaModal');
+            }
+        });
+
+        // Fechar modais clicando fora
+        document.querySelectorAll('.modal').forEach(modal => {
+            modal.addEventListener('click', function(e) {
+                if (e.target === this) {
+                    fecharModal(this.id);
+                }
+            });
         });
     </script>
 </body>

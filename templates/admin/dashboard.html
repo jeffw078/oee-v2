@@ -1,0 +1,228 @@
+{% extends 'base.html' %}
+
+{% block title %}Painel Administrativo - Sistema OEE{% endblock %}
+
+{% block extra_css %}
+<style>
+    .admin-header {
+        background: linear-gradient(135deg, #6f42c1, #495057);
+        color: white;
+        padding: 2rem 0;
+        margin-bottom: 2rem;
+    }
+    
+    .stat-card {
+        background: white;
+        border-radius: 15px;
+        padding: 2rem;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        border-left: 5px solid #6f42c1;
+        transition: transform 0.3s ease;
+    }
+    
+    .stat-card:hover {
+        transform: translateY(-5px);
+    }
+    
+    .stat-number {
+        font-size: 3rem;
+        font-weight: bold;
+        color: #6f42c1;
+    }
+    
+    .admin-menu {
+        background: white;
+        border-radius: 15px;
+        padding: 2rem;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    }
+    
+    .menu-item {
+        display: block;
+        padding: 1rem 1.5rem;
+        background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+        border-radius: 10px;
+        text-decoration: none;
+        color: #495057;
+        margin-bottom: 1rem;
+        transition: all 0.3s ease;
+        border-left: 4px solid transparent;
+    }
+    
+    .menu-item:hover {
+        background: linear-gradient(135deg, #6f42c1, #495057);
+        color: white;
+        border-left-color: #ffc107;
+        transform: translateX(5px);
+    }
+    
+    .recent-activity {
+        background: white;
+        border-radius: 15px;
+        padding: 2rem;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        max-height: 500px;
+        overflow-y: auto;
+    }
+    
+    .activity-item {
+        padding: 1rem;
+        border-bottom: 1px solid #e9ecef;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .activity-item:last-child {
+        border-bottom: none;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="admin-header">
+    <div class="container">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <h1 class="display-4 mb-0">⚙️ Painel Administrativo</h1>
+                <p class="lead mb-0">Gerenciamento do Sistema OEE</p>
+            </div>
+            <div class="col-md-4 text-end">
+                <div class="fs-5">{{ data_atual|date:"d/m/Y" }}</div>
+                <div class="text-muted">{{ request.user.nome_completo }}</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="container-fluid">
+    <!-- Estatísticas -->
+    <div class="row mb-5">
+        <div class="col-lg-3 col-md-6 mb-4">
+            <div class="stat-card">
+                <div class="stat-number">{{ stats.total_soldadores }}</div>
+                <div class="text-muted">Soldadores Ativos</div>
+            </div>
+        </div>
+        <div class="col-lg-3 col-md-6 mb-4">
+            <div class="stat-card">
+                <div class="stat-number">{{ stats.apontamentos_hoje }}</div>
+                <div class="text-muted">Apontamentos Hoje</div>
+            </div>
+        </div>
+        <div class="col-lg-3 col-md-6 mb-4">
+            <div class="stat-card">
+                <div class="stat-number">{{ stats.defeitos_hoje }}</div>
+                <div class="text-muted">Defeitos Hoje</div>
+            </div>
+        </div>
+        <div class="col-lg-3 col-md-6 mb-4">
+            <div class="stat-card">
+                <div class="stat-number">{{ stats.soldadores_ativos }}</div>
+                <div class="text-muted">Soldadores Trabalhando</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Menu Administrativo -->
+        <div class="col-lg-4 mb-4">
+            <div class="admin-menu">
+                <h3 class="mb-4">🛠️ Gerenciamento</h3>
+                
+                <a href="{% url 'core:gerenciar_soldadores' %}" class="menu-item">
+                    <div class="d-flex align-items-center">
+                        <div class="me-3">👷</div>
+                        <div>
+                            <div class="fw-bold">Soldadores</div>
+                            <small class="text-muted">{{ stats.total_soldadores }} ativos</small>
+                        </div>
+                    </div>
+                </a>
+                
+                <a href="{% url 'core:gerenciar_componentes' %}" class="menu-item">
+                    <div class="d-flex align-items-center">
+                        <div class="me-3">🔩</div>
+                        <div>
+                            <div class="fw-bold">Componentes</div>
+                            <small class="text-muted">{{ stats.total_componentes }} cadastrados</small>
+                        </div>
+                    </div>
+                </a>
+                
+                <a href="{% url 'core:gerenciar_paradas' %}" class="menu-item">
+                    <div class="d-flex align-items-center">
+                        <div class="me-3">⏸️</div>
+                        <div>
+                            <div class="fw-bold">Tipos de Parada</div>
+                            <small class="text-muted">Configurar paradas</small>
+                        </div>
+                    </div>
+                </a>
+                
+                <a href="{% url 'core:editar_apontamentos' %}" class="menu-item">
+                    <div class="d-flex align-items-center">
+                        <div class="me-3">📝</div>
+                        <div>
+                            <div class="fw-bold">Editar Apontamentos</div>
+                            <small class="text-muted">Correções manuais</small>
+                        </div>
+                    </div>
+                </a>
+                
+                <a href="{% url 'relatorios:dashboard_principal' %}" class="menu-item">
+                    <div class="d-flex align-items-center">
+                        <div class="me-3">📊</div>
+                        <div>
+                            <div class="fw-bold">Relatórios</div>
+                            <small class="text-muted">Dashboard OEE</small>
+                        </div>
+                    </div>
+                </a>
+                
+                <a href="/admin/" class="menu-item" target="_blank">
+                    <div class="d-flex align-items-center">
+                        <div class="me-3">🔧</div>
+                        <div>
+                            <div class="fw-bold">Django Admin</div>
+                            <small class="text-muted">Administração avançada</small>
+                        </div>
+                    </div>
+                </a>
+            </div>
+        </div>
+
+        <!-- Atividade Recente -->
+        <div class="col-lg-8 mb-4">
+            <div class="recent-activity">
+                <h3 class="mb-4">📈 Atividade Recente</h3>
+                
+                {% for apontamento in ultimos_apontamentos %}
+                <div class="activity-item">
+                    <div>
+                        <div class="fw-bold">{{ apontamento.soldador.usuario.nome_completo }}</div>
+                        <div class="text-muted">
+                            {{ apontamento.componente.nome }} - {{ apontamento.modulo.nome }}
+                        </div>
+                    </div>
+                    <div class="text-end">
+                        <div class="fw-bold">{{ apontamento.inicio_processo|date:"H:i" }}</div>
+                        <div class="text-muted">
+                            {% if apontamento.fim_processo %}
+                                ✅ Finalizado
+                            {% else %}
+                                🔄 Em andamento
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="text-center text-muted py-4">
+                    Nenhuma atividade hoje
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,358 @@
+{% extends 'base.html' %}
+
+{% block title %}Painel de Qualidade{% endblock %}
+
+{% block extra_css %}
+<style>
+    .qualidade-header {
+        background: linear-gradient(135deg, #28a745, #20c997);
+        color: white;
+        padding: 2rem 0;
+        margin-bottom: 2rem;
+    }
+    
+    .defeito-btn {
+        background: white;
+        border: 2px solid #dee2e6;
+        border-radius: 10px;
+        padding: 1rem;
+        margin: 0.5rem;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        text-align: center;
+    }
+    
+    .defeito-btn:hover, .defeito-btn.selected {
+        border-color: #28a745;
+        background-color: #f8fff8;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(40, 167, 69, 0.2);
+    }
+    
+    .apontamento-card {
+        background: white;
+        border: 1px solid #dee2e6;
+        border-radius: 10px;
+        padding: 1rem;
+        margin: 0.5rem 0;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+    
+    .apontamento-card:hover, .apontamento-card.selected {
+        border-color: #28a745;
+        background-color: #f8fff8;
+        box-shadow: 0 2px 8px rgba(40, 167, 69, 0.15);
+    }
+    
+    .quality-result {
+        padding: 1rem;
+        border-radius: 8px;
+        margin: 1rem 0;
+        font-weight: bold;
+        text-align: center;
+    }
+    
+    .quality-good { background-color: #d4edda; color: #155724; }
+    .quality-warning { background-color: #fff3cd; color: #856404; }
+    .quality-danger { background-color: #f8d7da; color: #721c24; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="qualidade-header">
+    <div class="container">
+        <h1 class="display-4 mb-0">🔍 Painel de Qualidade</h1>
+        <p class="lead mb-0">Registro de defeitos e controle de qualidade</p>
+    </div>
+</div>
+
+<div class="container-fluid">
+    <div class="row">
+        <!-- Seleção de tipo de defeito -->
+        <div class="col-lg-4 mb-4">
+            <div class="card">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">🚨 Tipos de Defeito</h5>
+                </div>
+                <div class="card-body">
+                    <div id="tiposDefeitoGrid">
+                        {% for tipo in tipos_defeito %}
+                        <div class="defeito-btn" onclick="selecionarTipoDefeito({{ tipo.id }}, '{{ tipo.nome }}')">
+                            <div class="fw-bold">{{ tipo.nome }}</div>
+                            <small class="text-muted">{{ tipo.descricao }}</small>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Seleção de apontamento -->
+        <div class="col-lg-4 mb-4">
+            <div class="card">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0">📋 Apontamentos do Dia</h5>
+                </div>
+                <div class="card-body" style="max-height: 500px; overflow-y: auto;">
+                    {% for apontamento in apontamentos_disponiveis %}
+                    <div class="apontamento-card" onclick="selecionarApontamento({{ apontamento.id }}, this)">
+                        <div><strong>Soldador:</strong> {{ apontamento.soldador.usuario.nome_completo }}</div>
+                        <div><strong>Componente:</strong> {{ apontamento.componente.nome }}</div>
+                        <div><strong>Módulo:</strong> {{ apontamento.modulo.nome }}</div>
+                        <div><strong>Horário:</strong> {{ apontamento.inicio_processo|date:"H:i" }} - {{ apontamento.fim_processo|date:"H:i" }}</div>
+                        {% if apontamento.diametro %}
+                        <div><strong>Diâmetro:</strong> {{ apontamento.diametro }}mm</div>
+                        {% endif %}
+                    </div>
+                    {% empty %}
+                    <p class="text-muted text-center">Nenhum apontamento finalizado hoje</p>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- Formulário de defeito -->
+        <div class="col-lg-4 mb-4">
+            <div class="card">
+                <div class="card-header bg-warning">
+                    <h5 class="mb-0">📝 Registrar Defeito</h5>
+                </div>
+                <div class="card-body">
+                    <div id="formDefeito" style="display: none;">
+                        <div class="mb-3">
+                            <label class="form-label">Tamanho do defeito (mm):</label>
+                            <input type="number" id="tamanhoDefeito" class="form-control" 
+                                   step="0.1" min="0.1" placeholder="Ex: 5.0"
+                                   oninput="calcularQualidade()">
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Observações (opcional):</label>
+                            <textarea id="observacoesDefeito" class="form-control" rows="3"
+                                      placeholder="Detalhes sobre o defeito encontrado..."></textarea>
+                        </div>
+                        
+                        <!-- Calculadora de qualidade -->
+                        <div id="calculadoraQualidade" style="display: none;">
+                            <div class="alert alert-info">
+                                <h6>📊 Cálculo de Impacto</h6>
+                                <div id="resultadosCalculo"></div>
+                                <div id="indiceQualidade" class="quality-result"></div>
+                            </div>
+                        </div>
+                        
+                        <button class="btn btn-success w-100" onclick="registrarDefeito()">
+                            ✅ Registrar Defeito
+                        </button>
+                    </div>
+                    
+                    <div id="instrucoes" class="text-center text-muted">
+                        <p>1️⃣ Selecione um tipo de defeito</p>
+                        <p>2️⃣ Selecione um apontamento</p>
+                        <p>3️⃣ Informe o tamanho do defeito</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Botões de ação -->
+    <div class="row">
+        <div class="col-12 text-center">
+            <a href="{% url 'qualidade:relatorio_qualidade' %}" class="btn btn-primary btn-lg me-3">
+                📈 Relatório de Qualidade
+            </a>
+            <a href="{% url 'soldagem:apontamento' %}" class="btn btn-secondary btn-lg">
+                🔙 Voltar ao Apontamento
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let tipoDefeitoSelecionado = null;
+let apontamentoSelecionado = null;
+let dadosApontamento = null;
+
+function selecionarTipoDefeito(id, nome) {
+    tipoDefeitoSelecionado = {id: id, nome: nome};
+    
+    // Destacar botão selecionado
+    const buttons = document.querySelectorAll('.defeito-btn');
+    buttons.forEach(btn => btn.classList.remove('selected'));
+    event.target.closest('.defeito-btn').classList.add('selected');
+    
+    verificarFormulario();
+}
+
+function selecionarApontamento(id, elemento) {
+    apontamentoSelecionado = id;
+    
+    // Destacar card selecionado
+    const cards = document.querySelectorAll('.apontamento-card');
+    cards.forEach(card => card.classList.remove('selected'));
+    elemento.classList.add('selected');
+    
+    // Buscar dados detalhados do apontamento
+    buscarDadosApontamento(id);
+    
+    verificarFormulario();
+}
+
+function buscarDadosApontamento(apontamentoId) {
+    // Simular busca de dados (em produção, fazer request para API)
+    const card = document.querySelector('.apontamento-card.selected');
+    const soldadorTexto = card.querySelector('div').textContent;
+    const componenteTexto = card.querySelectorAll('div')[1].textContent;
+    const diametroDiv = Array.from(card.querySelectorAll('div')).find(div => div.textContent.includes('Diâmetro:'));
+    
+    dadosApontamento = {
+        id: apontamentoId,
+        soldador: soldadorTexto.replace('Soldador: ', ''),
+        componente: componenteTexto.replace('Componente: ', ''),
+        diametro: diametroDiv ? parseFloat(diametroDiv.textContent.match(/(\d+(?:\.\d+)?)/)[0]) : null
+    };
+}
+
+function verificarFormulario() {
+    const form = document.getElementById('formDefeito');
+    const instrucoes = document.getElementById('instrucoes');
+    
+    if (tipoDefeitoSelecionado && apontamentoSelecionado) {
+        form.style.display = 'block';
+        instrucoes.style.display = 'none';
+        document.getElementById('tamanhoDefeito').focus();
+    } else {
+        form.style.display = 'none';
+        instrucoes.style.display = 'block';
+    }
+}
+
+function calcularQualidade() {
+    const tamanho = parseFloat(document.getElementById('tamanhoDefeito').value);
+    
+    if (!tamanho || tamanho <= 0 || !dadosApontamento) {
+        document.getElementById('calculadoraQualidade').style.display = 'none';
+        return;
+    }
+    
+    // Calcular área do defeito (círculo)
+    const raio = tamanho / 2;
+    const areaDefeito = Math.PI * (raio * raio);
+    
+    // Calcular área total da peça (valores baseados nos componentes)
+    const areasComponentes = {
+        'OLHAL DE IÇAMENTO': 30000,
+        'FAIS': 25000,
+        'FAIB': 28000,
+        'FAES': 22000,
+        'FAIE': 32000,
+        'ATERRAMENTO': 15000
+    };
+    
+    let areaTotalPeca = areasComponentes[dadosApontamento.componente] || 20000;
+    
+    // Ajustar por diâmetro se necessário
+    if (dadosApontamento.diametro) {
+        const fatorDiametro = dadosApontamento.diametro / 500; // Diâmetro padrão 500mm
+        areaTotalPeca *= fatorDiametro;
+    }
+    
+    // Calcular percentual de defeito
+    const percentualDefeito = (areaDefeito / areaTotalPeca) * 100;
+    const indiceQualidade = Math.max(0, 100 - percentualDefeito);
+    
+    // Mostrar resultados
+    document.getElementById('calculadoraQualidade').style.display = 'block';
+    
+    document.getElementById('resultadosCalculo').innerHTML = `
+        <div><strong>Área do defeito:</strong> ${areaDefeito.toFixed(2)} mm²</div>
+        <div><strong>Área total:</strong> ${areaTotalPeca.toFixed(0)} mm²</div>
+        <div><strong>Percentual do defeito:</strong> ${percentualDefeito.toFixed(2)}%</div>
+    `;
+    
+    const resultDiv = document.getElementById('indiceQualidade');
+    resultDiv.textContent = `Índice de Qualidade: ${indiceQualidade.toFixed(2)}%`;
+    
+    if (indiceQualidade >= 95) {
+        resultDiv.className = 'quality-result quality-good';
+    } else if (indiceQualidade >= 85) {
+        resultDiv.className = 'quality-result quality-warning';
+    } else {
+        resultDiv.className = 'quality-result quality-danger';
+    }
+}
+
+function registrarDefeito() {
+    const tamanho = parseFloat(document.getElementById('tamanhoDefeito').value);
+    const observacoes = document.getElementById('observacoesDefeito').value;
+    
+    if (!tipoDefeitoSelecionado) {
+        alert('❌ Selecione um tipo de defeito');
+        return;
+    }
+    
+    if (!apontamentoSelecionado) {
+        alert('❌ Selecione um apontamento');
+        return;
+    }
+    
+    if (!tamanho || tamanho <= 0) {
+        alert('❌ Digite um tamanho válido para o defeito');
+        return;
+    }
+    
+    // Mostrar resumo para confirmação
+    const resumo = `
+        Tipo de Defeito: ${tipoDefeitoSelecionado.nome}
+        Soldador: ${dadosApontamento.soldador}
+        Componente: ${dadosApontamento.componente}
+        Tamanho: ${tamanho} mm
+        ${observacoes ? 'Observações: ' + observacoes : ''}
+    `;
+    
+    if (!confirm(`📋 Confirma o registro do defeito?\n\n${resumo}`)) {
+        return;
+    }
+    
+    // Enviar dados
+    const dados = {
+        tipo_defeito_id: tipoDefeitoSelecionado.id,
+        apontamento_id: apontamentoSelecionado,
+        tamanho_mm: tamanho,
+        observacoes: observacoes
+    };
+    
+    fetch('{% url "qualidade:registrar_defeito" %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCsrfToken()
+        },
+        body: JSON.stringify(dados)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert(`✅ Defeito registrado com sucesso!\n\nImpacto na qualidade: ${data.calculos.penalizacao.toFixed(2)}%`);
+            location.reload(); // Recarregar página
+        } else {
+            alert(`❌ Erro: ${data.message}`);
+        }
+    })
+    .catch(error => {
+        console.error('Erro:', error);
+        alert('❌ Erro de conexão');
+    });
+}
+
+function getCsrfToken() {
+    const tokenElement = document.querySelector('[name=csrfmiddlewaretoken]');
+    return tokenElement ? tokenElement.value : '';
+}
+</script>
+{% csrf_token %}
+{% endblock %}

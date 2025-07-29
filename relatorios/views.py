@@ -1,19 +1,17 @@
 from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.utils import timezone
 from django.contrib import messages
-from django.db.models import Sum, Avg, Count, Q
+from django.db.models import Sum, Avg, Count, Q, Min, Max
 from datetime import datetime, date, timedelta
 from decimal import Decimal
 import json
 import math
-from core.models import Soldador
-from soldagem.models import Apontamento, Parada, TipoParada, Modulo, Componente, Turno
-from qualidade.models import Defeito
 import csv
-from django.http import HttpResponse
+from soldagem.models import Apontamento, Parada, TipoParada, Modulo, Componente, Turno, Soldador
+from qualidade.models import Defeito
 
 @login_required
 def dashboard_principal(request):
@@ -63,362 +61,260 @@ def dashboard_principal(request):
     return render(request, 'relatorios/dashboard_principal.html', context)
 
 @login_required
-def relatorio_oee_detalhado(request):
-    '''Relatório OEE detalhado com filtros'''
-    if request.user.tipo_usuario not in ['admin', 'analista']:
-        messages.error(request, 'Acesso negado')
-        return redirect('soldagem:apontamento')
-    
-    # Filtros
-    data_inicio = request.GET.get('data_inicio', (timezone.now().date() - timedelta(days=7)).isoformat())
-    data_fim = request.GET.get('data_fim', timezone.now().date().isoformat())
-    soldador_id = request.GET.get('soldador')
-    modulo_id = request.GET.get('modulo')
-    
-    # Converter datas
-    data_inicio = datetime.strptime(data_inicio, '%Y-%m-%d').date()
-    data_fim = datetime.strptime(data_fim, '%Y-%m-%d').date()
-    
-    # Calcular OEE para o período
-    oee_resultado = calcular_oee_periodo(data_inicio, data_fim, soldador_id, modulo_id)
-    
-    # Dados para gráficos
-    dados_graficos = preparar_dados_graficos(data_inicio, data_fim, soldador_id, modulo_id)
-    
-    # Dados para filtros
-    soldadores = Soldador.objects.filter(ativo=True).order_by('usuario__nome_completo')
-    modulos = Modulo.objects.filter(ativo=True).order_by('nome')
-    
-    context = {
-        'oee_resultado': oee_resultado,
-        'dados_graficos': dados_graficos,
-        'soldadores': soldadores,
-        'modulos': modulos,
-        'filtros': {
-            'data_inicio': data_inicio,
-            'data_fim': data_fim,
-            'soldador_id': soldador_id,
-            'modulo_id': modulo_id,
-        }
-    }
-    
-    return render(request, 'relatorios/relatorio_oee_detalhado.html', context)
-
-@login_required
 def pontos_melhoria(request):
     '''Relatório de pontos de melhoria'''
     if request.user.tipo_usuario not in ['admin', 'analista']:
         messages.error(request, 'Acesso negado')
         return redirect('soldagem:apontamento')
     
-    data_inicio = request.GET.get('data_inicio', (timezone.now().date() - timedelta(days=7)).isoformat())
-    data_fim = request.GET.get('data_fim', timezone.now().date().isoformat())
-    soldador_ids = request.GET.getlist('soldadores')
-    componente_id = request.GET.get('componente')
+    # Filtros
+    data_inicio = request.GET.get('data_inicio', (timezone.now() - timedelta(days=7)).date())
+    data_fim = request.GET.get('data_fim', timezone.now().date())
+    soldadores_selecionados = request.GET.getlist('soldadores')
+    componente_id = request.GET.get('componente_id')
     
-    # Converter datas
-    data_inicio = datetime.strptime(data_inicio, '%Y-%m-%d').date()
-    data_fim = datetime.strptime(data_fim, '%Y-%m-%d').date()
-    
-    # Query base
+    # Base da consulta
     apontamentos = Apontamento.objects.filter(
         inicio_processo__date__gte=data_inicio,
         inicio_processo__date__lte=data_fim,
-        fim_processo__isnull=False,
-        tempo_real__isnull=False
-    ).select_related('soldador', 'componente', 'modulo')
+        fim_processo__isnull=False
+    ).select_related('soldador__usuario', 'componente', 'modulo')
     
-    # Aplicar filtros
-    if soldador_ids:
-        apontamentos = apontamentos.filter(soldador_id__in=soldador_ids)
-    
+    if soldadores_selecionados:
+        apontamentos = apontamentos.filter(soldador_id__in=soldadores_selecionados)
     if componente_id:
         apontamentos = apontamentos.filter(componente_id=componente_id)
     
-    # Análise de tempos
+    # Análise de tempos vs padrão
     analise_tempos = []
-    for apt in apontamentos:
-        diferenca_padrao = float(apt.tempo_real) - float(apt.tempo_padrao)
-        percentual_diferenca = (diferenca_padrao / float(apt.tempo_padrao)) * 100
+    for apontamento in apontamentos:
+        if apontamento.tempo_real and apontamento.tempo_padrao:
+            tempo_real_min = float(apontamento.tempo_real)
+            tempo_padrao_min = float(apontamento.tempo_padrao)
+            diferenca = tempo_real_min - tempo_padrao_min
+            percentual_diferenca = (diferenca / tempo_padrao_min) * 100 if tempo_padrao_min > 0 else 0
+            
+            analise_tempos.append({
+                'apontamento': apontamento,
+                'tempo_real': tempo_real_min,
+                'tempo_padrao': tempo_padrao_min,
+                'diferenca': diferenca,
+                'percentual_diferenca': percentual_diferenca,
+                'acima_padrao': diferenca > 0
+            })
+    
+    # Ordenar por maior diferença (piores performances)
+    analise_tempos.sort(key=lambda x: x['percentual_diferenca'], reverse=True)
+    
+    # Estatísticas por soldador
+    stats_soldadores = {}
+    for item in analise_tempos:
+        soldador = item['apontamento'].soldador.usuario.nome_completo
+        if soldador not in stats_soldadores:
+            stats_soldadores[soldador] = {
+                'total_apontamentos': 0,
+                'tempo_total_diferenca': 0,
+                'maior_diferenca': 0,
+                'apontamentos_acima_padrao': 0
+            }
         
-        analise_tempos.append({
-            'soldador': apt.soldador.usuario.nome_completo,
-            'componente': apt.componente.nome,
-            'modulo': apt.modulo.nome,
-            'tempo_padrao': float(apt.tempo_padrao),
-            'tempo_real': float(apt.tempo_real),
-            'diferenca': diferenca_padrao,
-            'percentual_diferenca': percentual_diferenca,
-            'eficiencia': float(apt.eficiencia_calculada),
-            'data': apt.inicio_processo.strftime('%d/%m/%Y'),
-            'hora': apt.inicio_processo.strftime('%H:%M')
-        })
+        stats_soldadores[soldador]['total_apontamentos'] += 1
+        stats_soldadores[soldador]['tempo_total_diferenca'] += item['diferenca']
+        stats_soldadores[soldador]['maior_diferenca'] = max(
+            stats_soldadores[soldador]['maior_diferenca'], 
+            item['percentual_diferenca']
+        )
+        if item['acima_padrao']:
+            stats_soldadores[soldador]['apontamentos_acima_padrao'] += 1
     
-    # Ordenar por maior diferença
-    analise_tempos.sort(key=lambda x: x['diferenca'], reverse=True)
+    # Estatísticas por componente
+    stats_componentes = {}
+    for item in analise_tempos:
+        componente = item['apontamento'].componente.nome
+        if componente not in stats_componentes:
+            stats_componentes[componente] = {
+                'total_apontamentos': 0,
+                'tempo_medio_diferenca': 0,
+                'total_diferenca': 0
+            }
+        
+        stats_componentes[componente]['total_apontamentos'] += 1
+        stats_componentes[componente]['total_diferenca'] += item['diferenca']
     
-    # Dados para filtros
-    soldadores = Soldador.objects.filter(ativo=True).order_by('usuario__nome_completo')
-    componentes = Componente.objects.filter(ativo=True).order_by('nome')
+    for comp in stats_componentes:
+        if stats_componentes[comp]['total_apontamentos'] > 0:
+            stats_componentes[comp]['tempo_medio_diferenca'] = (
+                stats_componentes[comp]['total_diferenca'] / 
+                stats_componentes[comp]['total_apontamentos']
+            )
     
     context = {
-        'analise_tempos': analise_tempos[:100],  # Limitar a 100 registros
-        'soldadores': soldadores,
-        'componentes': componentes,
-        'filtros': {
-            'data_inicio': data_inicio,
-            'data_fim': data_fim,
-            'soldador_ids': soldador_ids,
-            'componente_id': componente_id,
-        }
+        'analise_tempos': analise_tempos[:50],  # Top 50 piores
+        'stats_soldadores': stats_soldadores,
+        'stats_componentes': stats_componentes,
+        'soldadores': Soldador.objects.filter(ativo=True),
+        'componentes': Componente.objects.filter(ativo=True),
+        'data_inicio': data_inicio,
+        'data_fim': data_fim,
+        'soldadores_selecionados': soldadores_selecionados,
+        'componente_selecionado': componente_id,
     }
     
     return render(request, 'relatorios/pontos_melhoria.html', context)
 
 @login_required
 def relatorio_paradas(request):
-    '''Relatório de paradas'''
-    if request.user.tipo_usuario not in ['admin', 'analista', 'manutencao']:
+    '''Relatório detalhado de paradas'''
+    if request.user.tipo_usuario not in ['admin', 'analista']:
         messages.error(request, 'Acesso negado')
         return redirect('soldagem:apontamento')
     
-    data_inicio = request.GET.get('data_inicio', (timezone.now().date() - timedelta(days=7)).isoformat())
-    data_fim = request.GET.get('data_fim', timezone.now().date().isoformat())
-    soldador_ids = request.GET.getlist('soldadores')
+    # Filtros
+    data_inicio = request.GET.get('data_inicio', (timezone.now() - timedelta(days=7)).date())
+    data_fim = request.GET.get('data_fim', timezone.now().date())
+    soldadores_selecionados = request.GET.getlist('soldadores')
     categoria = request.GET.get('categoria')
     
-    # Converter datas
-    data_inicio = datetime.strptime(data_inicio, '%Y-%m-%d').date()
-    data_fim = datetime.strptime(data_fim, '%Y-%m-%d').date()
-    
-    # Query base
+    # Base da consulta
     paradas = Parada.objects.filter(
         inicio__date__gte=data_inicio,
         inicio__date__lte=data_fim,
-        duracao_minutos__isnull=False
-    ).select_related('soldador', 'tipo_parada')
+        fim__isnull=False
+    ).select_related('tipo_parada', 'soldador__usuario')
     
-    # Aplicar filtros
-    if soldador_ids:
-        paradas = paradas.filter(soldador_id__in=soldador_ids)
-    
+    if soldadores_selecionados:
+        paradas = paradas.filter(soldador_id__in=soldadores_selecionados)
     if categoria:
         paradas = paradas.filter(tipo_parada__categoria=categoria)
     
-    # Análise de paradas
-    analise_paradas = []
-    total_tempo_paradas = 0
+    # Análise por tipo de parada
+    paradas_por_tipo = paradas.values('tipo_parada__nome', 'tipo_parada__categoria', 'tipo_parada__penaliza_oee').annotate(
+        total_ocorrencias=Count('id'),
+        tempo_total_minutos=Sum('duracao_minutos'),
+        tempo_medio_minutos=Avg('duracao_minutos')
+    ).order_by('-tempo_total_minutos')
     
-    for parada in paradas:
-        duracao_horas = float(parada.duracao_minutos) / 60
-        total_tempo_paradas += duracao_horas
-        
-        analise_paradas.append({
-            'soldador': parada.soldador.usuario.nome_completo,
-            'tipo_parada': parada.tipo_parada.nome,
-            'categoria': parada.tipo_parada.get_categoria_display(),
-            'duracao_minutos': float(parada.duracao_minutos),
-            'duracao_horas': duracao_horas,
-            'penaliza_oee': parada.tipo_parada.penaliza_oee,
-            'data': parada.inicio.strftime('%d/%m/%Y'),
-            'hora_inicio': parada.inicio.strftime('%H:%M'),
-            'hora_fim': parada.fim.strftime('%H:%M') if parada.fim else '',
-            'motivo': parada.motivo_detalhado
-        })
+    # Análise por soldador
+    paradas_por_soldador = paradas.values('soldador__usuario__nome_completo').annotate(
+        total_ocorrencias=Count('id'),
+        tempo_total_minutos=Sum('duracao_minutos'),
+        tempo_medio_minutos=Avg('duracao_minutos')
+    ).order_by('-tempo_total_minutos')
     
-    # Dados para filtros
-    soldadores = Soldador.objects.filter(ativo=True).order_by('usuario__nome_completo')
-    categorias = TipoParada.CATEGORIAS
+    # Análise por dia
+    paradas_por_dia = paradas.extra({
+        'data': 'DATE(inicio)'
+    }).values('data').annotate(
+        total_ocorrencias=Count('id'),
+        tempo_total_minutos=Sum('duracao_minutos')
+    ).order_by('data')
+    
+    # Top 10 maiores paradas
+    maiores_paradas = paradas.order_by('-duracao_minutos')[:10]
+    
+    # Estatísticas gerais
+    total_paradas = paradas.count()
+    tempo_total_paradas = paradas.aggregate(Sum('duracao_minutos'))['duracao_minutos__sum'] or 0
+    tempo_medio_parada = paradas.aggregate(Avg('duracao_minutos'))['duracao_minutos__avg'] or 0
+    
+    # Paradas que penalizam vs não penalizam OEE
+    paradas_penalizantes = paradas.filter(tipo_parada__penaliza_oee=True)
+    tempo_paradas_penalizantes = paradas_penalizantes.aggregate(Sum('duracao_minutos'))['duracao_minutos__sum'] or 0
     
     context = {
-        'analise_paradas': analise_paradas,
-        'total_tempo_paradas': total_tempo_paradas,
-        'soldadores': soldadores,
-        'categorias': categorias,
-        'filtros': {
-            'data_inicio': data_inicio,
-            'data_fim': data_fim,
-            'soldador_ids': soldador_ids,
-            'categoria': categoria,
-        }
+        'paradas_por_tipo': paradas_por_tipo,
+        'paradas_por_soldador': paradas_por_soldador,
+        'paradas_por_dia': paradas_por_dia,
+        'maiores_paradas': maiores_paradas,
+        'estatisticas': {
+            'total_paradas': total_paradas,
+            'tempo_total_paradas': round(tempo_total_paradas / 60, 2),  # Converter para horas
+            'tempo_medio_parada': round(tempo_medio_parada, 1),
+            'tempo_paradas_penalizantes': round(tempo_paradas_penalizantes / 60, 2),
+            'percentual_penalizante': round((tempo_paradas_penalizantes / tempo_total_paradas * 100), 1) if tempo_total_paradas > 0 else 0
+        },
+        'soldadores': Soldador.objects.filter(ativo=True),
+        'categorias': TipoParada.CATEGORIA_CHOICES,
+        'data_inicio': data_inicio,
+        'data_fim': data_fim,
+        'soldadores_selecionados': soldadores_selecionados,
+        'categoria_selecionada': categoria,
     }
     
     return render(request, 'relatorios/relatorio_paradas.html', context)
 
 @login_required
 def utilizacao_turnos(request):
-    '''Análise de utilização considerando múltiplos turnos'''
+    '''Gráfico de utilização comparando 1, 2 e 3 turnos'''
     if request.user.tipo_usuario not in ['admin', 'analista']:
         messages.error(request, 'Acesso negado')
         return redirect('soldagem:apontamento')
     
-    data_inicio = request.GET.get('data_inicio', (timezone.now().date() - timedelta(days=30)).isoformat())
-    data_fim = request.GET.get('data_fim', timezone.now().date().isoformat())
+    # Filtros
+    data_inicio = request.GET.get('data_inicio', (timezone.now() - timedelta(days=30)).date())
+    data_fim = request.GET.get('data_fim', timezone.now().date())
     
-    # Converter datas
-    data_inicio = datetime.strptime(data_inicio, '%Y-%m-%d').date()
-    data_fim = datetime.strptime(data_fim, '%Y-%m-%d').date()
-    
-    # Calcular utilização atual (1 turno)
+    # Calcular utilização atual (considerando 1 turno de 8h)
     utilizacao_atual = calcular_utilizacao_periodo(data_inicio, data_fim, 1)
-    
-    # Projeções para 2 e 3 turnos
     utilizacao_2_turnos = calcular_utilizacao_periodo(data_inicio, data_fim, 2)
     utilizacao_3_turnos = calcular_utilizacao_periodo(data_inicio, data_fim, 3)
     
-    # Dados para gráfico
-    dados_grafico = {
-        'cenarios': ['1 Turno (Atual)', '2 Turnos', '3 Turnos'],
-        'utilizacao': [
-            utilizacao_atual['percentual_utilizacao'],
-            utilizacao_2_turnos['percentual_utilizacao'],
-            utilizacao_3_turnos['percentual_utilizacao']
-        ],
-        'horas_disponiveis': [
-            utilizacao_atual['horas_disponiveis'],
-            utilizacao_2_turnos['horas_disponiveis'],
-            utilizacao_3_turnos['horas_disponiveis']
-        ],
-        'horas_utilizadas': [
-            utilizacao_atual['horas_utilizadas'],
-            utilizacao_2_turnos['horas_utilizadas'],
-            utilizacao_3_turnos['horas_utilizadas']
-        ]
-    }
+    # Dados para gráfico de utilização por dia
+    dados_diarios = []
+    data_atual = data_inicio
+    
+    while data_atual <= data_fim:
+        # Horas realmente trabalhadas no dia
+        apontamentos_dia = Apontamento.objects.filter(
+            inicio_processo__date=data_atual,
+            fim_processo__isnull=False
+        )
+        
+        horas_trabalhadas = sum([
+            float(a.tempo_real) for a in apontamentos_dia if a.tempo_real
+        ]) / 60
+        
+        dados_diarios.append({
+            'data': data_atual.strftime('%d/%m'),
+            'horas_trabalhadas': round(horas_trabalhadas, 2),
+            'disponivel_1_turno': 8,
+            'disponivel_2_turnos': 16,
+            'disponivel_3_turnos': 24,
+            'utilizacao_1_turno': round((horas_trabalhadas / 8 * 100), 1) if horas_trabalhadas <= 8 else 100,
+            'utilizacao_2_turnos': round((horas_trabalhadas / 16 * 100), 1) if horas_trabalhadas <= 16 else 100,
+            'utilizacao_3_turnos': round((horas_trabalhadas / 24 * 100), 1) if horas_trabalhadas <= 24 else 100,
+        })
+        
+        data_atual += timedelta(days=1)
+    
+    # Projeções de melhoria
+    dias_periodo = (data_fim - data_inicio).days + 1
+    horas_totais_trabalhadas = utilizacao_atual['horas_utilizadas']
+    
+    potencial_2_turnos = (dias_periodo * 16) - horas_totais_trabalhadas
+    potencial_3_turnos = (dias_periodo * 24) - horas_totais_trabalhadas
     
     context = {
         'utilizacao_atual': utilizacao_atual,
         'utilizacao_2_turnos': utilizacao_2_turnos,
         'utilizacao_3_turnos': utilizacao_3_turnos,
-        'dados_grafico': dados_grafico,
-        'filtros': {
-            'data_inicio': data_inicio,
-            'data_fim': data_fim,
-        }
+        'dados_diarios': dados_diarios,
+        'projecoes': {
+            'potencial_2_turnos': round(potencial_2_turnos, 1),
+            'potencial_3_turnos': round(potencial_3_turnos, 1),
+            'aumento_capacidade_2_turnos': 100,  # 2x
+            'aumento_capacidade_3_turnos': 200,  # 3x
+        },
+        'data_inicio': data_inicio,
+        'data_fim': data_fim,
     }
     
     return render(request, 'relatorios/utilizacao_turnos.html', context)
 
-# ==================== APIs PARA GRÁFICOS ====================
-
-@csrf_exempt
-@login_required
-def api_oee_historico(request):
-    '''API para dados históricos de OEE'''
-    if request.method == 'GET':
-        try:
-            periodo = int(request.GET.get('periodo', '7'))
-            soldador_id = request.GET.get('soldador')
-            
-            dados = []
-            for i in range(periodo):
-                data = timezone.now().date() - timedelta(days=i)
-                oee_dia = calcular_oee_periodo(data, data, soldador_id)
-                
-                dados.append({
-                    'data': data.strftime('%d/%m'),
-                    'utilizacao': float(oee_dia['utilizacao']),
-                    'eficiencia': float(oee_dia['eficiencia']),
-                    'qualidade': float(oee_dia['qualidade']),
-                    'oee': float(oee_dia['oee'])
-                })
-            
-            dados.reverse()  # Ordem cronológica
-            
-            return JsonResponse({'success': True, 'dados': dados})
-            
-        except Exception as e:
-            return JsonResponse({'success': False, 'message': str(e)})
+def calcular_oee_periodo(data_inicio, data_fim, soldador_id=None):
+    """Calcula OEE para um período específico"""
     
-    return JsonResponse({'success': False, 'message': 'Método não permitido'})
-
-@csrf_exempt
-@login_required
-def api_eficiencia_dispersao(request):
-    '''API para gráfico de dispersão de eficiência'''
-    if request.method == 'GET':
-        try:
-            componente_id = request.GET.get('componente')
-            periodo = int(request.GET.get('periodo', '7'))
-            
-            data_inicio = timezone.now().date() - timedelta(days=periodo-1)
-            data_fim = timezone.now().date()
-            
-            apontamentos = Apontamento.objects.filter(
-                inicio_processo__date__gte=data_inicio,
-                inicio_processo__date__lte=data_fim,
-                fim_processo__isnull=False,
-                eficiencia_calculada__isnull=False
-            ).select_related('soldador', 'componente')
-            
-            if componente_id:
-                apontamentos = apontamentos.filter(componente_id=componente_id)
-            
-            dados = []
-            for apt in apontamentos:
-                hora_inicio = apt.inicio_processo.hour + (apt.inicio_processo.minute / 60)
-                
-                dados.append({
-                    'x': hora_inicio,
-                    'y': float(apt.eficiencia_calculada),
-                    'soldador': apt.soldador.usuario.nome_completo,
-                    'componente': apt.componente.nome,
-                    'tempo_real': float(apt.tempo_real),
-                    'tempo_padrao': float(apt.tempo_padrao),
-                    'data': apt.inicio_processo.strftime('%d/%m/%Y')
-                })
-            
-            return JsonResponse({'success': True, 'dados': dados})
-            
-        except Exception as e:
-            return JsonResponse({'success': False, 'message': str(e)})
-    
-    return JsonResponse({'success': False, 'message': 'Método não permitido'})
-
-@csrf_exempt
-@login_required
-def api_paradas_categoria(request):
-    '''API para gráfico de paradas por categoria'''
-    if request.method == 'GET':
-        try:
-            periodo = int(request.GET.get('periodo', '7'))
-            
-            data_inicio = timezone.now().date() - timedelta(days=periodo-1)
-            data_fim = timezone.now().date()
-            
-            paradas = Parada.objects.filter(
-                inicio__date__gte=data_inicio,
-                inicio__date__lte=data_fim,
-                duracao_minutos__isnull=False
-            ).select_related('tipo_parada')
-            
-            # Agrupar por categoria
-            categorias = {}
-            for parada in paradas:
-                categoria = parada.tipo_parada.get_categoria_display()
-                if categoria not in categorias:
-                    categorias[categoria] = 0
-                categorias[categoria] += float(parada.duracao_minutos)
-            
-            dados = {
-                'labels': list(categorias.keys()),
-                'valores': list(categorias.values()),
-                'cores': ['#dc3545', '#ffc107', '#28a745', '#17a2b8', '#6f42c1']
-            }
-            
-            return JsonResponse({'success': True, 'dados': dados})
-            
-        except Exception as e:
-            return JsonResponse({'success': False, 'message': str(e)})
-    
-    return JsonResponse({'success': False, 'message': 'Método não permitido'})
-
-# ==================== FUNÇÕES AUXILIARES ====================
-
-def calcular_oee_periodo(data_inicio, data_fim, soldador_id=None, modulo_id=None):
-    '''Calcula OEE para um período específico'''
-    
-    # Query base para apontamentos
+    # Filtrar apontamentos
     apontamentos = Apontamento.objects.filter(
         inicio_processo__date__gte=data_inicio,
         inicio_processo__date__lte=data_fim,
@@ -428,42 +324,35 @@ def calcular_oee_periodo(data_inicio, data_fim, soldador_id=None, modulo_id=None
     if soldador_id:
         apontamentos = apontamentos.filter(soldador_id=soldador_id)
     
-    if modulo_id:
-        apontamentos = apontamentos.filter(modulo_id=modulo_id)
-    
-    # Query para paradas
+    # Filtrar paradas e defeitos
     paradas = Parada.objects.filter(
         inicio__date__gte=data_inicio,
         inicio__date__lte=data_fim,
-        duracao_minutos__isnull=False
+        fim__isnull=False
     )
     
-    if soldador_id:
-        paradas = paradas.filter(soldador_id=soldador_id)
-    
-    # Query para defeitos
     defeitos = Defeito.objects.filter(
         data_deteccao__date__gte=data_inicio,
         data_deteccao__date__lte=data_fim
     )
     
     if soldador_id:
+        paradas = paradas.filter(soldador_id=soldador_id)
         defeitos = defeitos.filter(soldador_id=soldador_id)
     
-    # Calcular métricas
     total_apontamentos = apontamentos.count()
     
     if total_apontamentos == 0:
         return {
-            'utilizacao': Decimal('0'),
-            'eficiencia': Decimal('0'),
-            'qualidade': Decimal('100'),
-            'oee': Decimal('0'),
+            'utilizacao': 0,
+            'eficiencia': 0,
+            'qualidade': 100,
+            'oee': 0,
             'detalhes': {
-                'horas_disponiveis': Decimal('0'),
-                'horas_trabalhadas': Decimal('0'),
-                'tempo_produtivo': Decimal('0'),
-                'tempo_padrao_total': Decimal('0'),
+                'horas_disponiveis': 0,
+                'horas_trabalhadas': 0,
+                'tempo_produtivo': 0,
+                'tempo_padrao_total': 0,
                 'total_apontamentos': 0,
                 'total_defeitos': 0,
                 'total_paradas': 0
@@ -494,16 +383,15 @@ def calcular_oee_periodo(data_inicio, data_fim, soldador_id=None, modulo_id=None
     
     eficiencia = (Decimal(str(tempo_padrao_total)) / Decimal(str(tempo_real_total)) * 100) if tempo_real_total > 0 else Decimal('0')
     
-    # 3. QUALIDADE
+    # 3. QUALIDADE (CORRIGIDO - PROBLEMA 3)
     total_defeitos = defeitos.count()
     total_area_defeitos = sum([float(d.area_defeito or 0) for d in defeitos])
     
-    # Calcular área total de soldagem
+    # Calcular área total de soldagem baseada nos componentes
     area_total_soldagem = 0
     for apontamento in apontamentos:
-        if apontamento.diametro:
-            area_peca = math.pi * float(apontamento.diametro) * 50
-            area_total_soldagem += area_peca
+        area_componente = calcular_area_soldagem_componente(apontamento)
+        area_total_soldagem += area_componente
     
     if area_total_soldagem > 0:
         percentual_defeito = (total_area_defeitos / area_total_soldagem) * 100
@@ -529,6 +417,11 @@ def calcular_oee_periodo(data_inicio, data_fim, soldador_id=None, modulo_id=None
             'total_paradas': paradas.count()
         }
     }
+
+def calcular_area_soldagem_componente(apontamento):
+    """Função auxiliar importada da qualidade"""
+    from qualidade.views import calcular_area_soldagem_componente as calc_area
+    return calc_area(apontamento)
 
 def calcular_utilizacao_periodo(data_inicio, data_fim, num_turnos):
     '''Calcula utilização considerando múltiplos turnos'''
@@ -556,121 +449,85 @@ def calcular_utilizacao_periodo(data_inicio, data_fim, num_turnos):
         'potencial_melhoria': round(100 - percentual_utilizacao, 2)
     }
 
-def preparar_dados_graficos(data_inicio, data_fim, soldador_id=None, modulo_id=None):
-    '''Prepara dados para gráficos'''
+# APIs para gráficos
+@login_required
+def api_oee_historico(request):
+    '''API para dados históricos de OEE'''
+    periodo = int(request.GET.get('periodo', 7))
     
-    # Dados diários de OEE
-    dados_diarios = []
-    data_atual = data_inicio
+    dados = []
+    data_atual = timezone.now().date() - timedelta(days=periodo-1)
     
-    while data_atual <= data_fim:
-        oee_dia = calcular_oee_periodo(data_atual, data_atual, soldador_id, modulo_id)
-        
-        dados_diarios.append({
+    for i in range(periodo):
+        oee_dia = calcular_oee_periodo(data_atual, data_atual)
+        dados.append({
             'data': data_atual.strftime('%d/%m'),
+            'oee': float(oee_dia['oee']),
             'utilizacao': float(oee_dia['utilizacao']),
             'eficiencia': float(oee_dia['eficiencia']),
-            'qualidade': float(oee_dia['qualidade']),
-            'oee': float(oee_dia['oee'])
+            'qualidade': float(oee_dia['qualidade'])
         })
-        
         data_atual += timedelta(days=1)
     
-    return {
-        'dados_diarios': dados_diarios,
-        'periodo': f"{data_inicio.strftime('%d/%m/%Y')} - {data_fim.strftime('%d/%m/%Y')}"
-    }
+    return JsonResponse({'success': True, 'dados': dados})
 
-# Adicionar em relatorios/views.py
 @login_required
-def grafico_eficiencia_dispersao(request):
-    """Gráfico de dispersão para identificar padrões de eficiência"""
-    componente_id = request.GET.get('componente')
-    periodo = int(request.GET.get('periodo', '30'))
+def api_eficiencia_dispersao(request):
+    '''API para gráfico de dispersão de eficiência'''
+    periodo = int(request.GET.get('periodo', 30))
     
+    data_inicio = timezone.now().date() - timedelta(days=periodo-1)
     data_fim = timezone.now().date()
-    data_inicio = data_fim - timedelta(days=periodo)
     
     apontamentos = Apontamento.objects.filter(
         inicio_processo__date__gte=data_inicio,
-        fim_processo__isnull=False
-    )
+        inicio_processo__date__lte=data_fim,
+        fim_processo__isnull=False,
+        tempo_real__isnull=False,
+        tempo_padrao__isnull=False
+    ).select_related('soldador__usuario', 'componente')
     
-    if componente_id:
-        apontamentos = apontamentos.filter(componente_id=componente_id)
-    
-    dados_dispersao = []
+    dados = []
     for apt in apontamentos:
-        hora = apt.inicio_processo.hour
-        dia_semana = apt.inicio_processo.weekday()
-        
-        dados_dispersao.append({
-            'x': hora,
-            'y': float(apt.eficiencia_calculada),
-            'dia_semana': dia_semana,
-            'soldador': apt.soldador.usuario.nome_completo,
-            'componente': apt.componente.nome
-        })
+        if apt.tempo_real and apt.tempo_padrao:
+            eficiencia = (float(apt.tempo_padrao) / float(apt.tempo_real)) * 100
+            dados.append({
+                'x': apt.inicio_processo.strftime('%d/%m'),
+                'y': round(eficiencia, 1),
+                'soldador': apt.soldador.usuario.nome_completo,
+                'componente': apt.componente.nome,
+                'tempo_real': float(apt.tempo_real),
+                'tempo_padrao': float(apt.tempo_padrao)
+            })
     
-    # Análise por período do dia
-    periodos = {
-        'Manhã (6h-12h)': [6, 7, 8, 9, 10, 11],
-        'Tarde (12h-18h)': [12, 13, 14, 15, 16, 17],
-        'Noite (18h-6h)': [18, 19, 20, 21, 22, 23, 0, 1, 2, 3, 4, 5]
-    }
-    
-    analise_periodos = {}
-    for periodo_nome, horas in periodos.items():
-        apts_periodo = [d for d in dados_dispersao if d['x'] in horas]
-        if apts_periodo:
-            eficiencias = [d['y'] for d in apts_periodo]
-            analise_periodos[periodo_nome] = {
-                'media': sum(eficiencias) / len(eficiencias),
-                'min': min(eficiencias),
-                'max': max(eficiencias),
-                'quantidade': len(eficiencias)
-            }
-    
-    return render(request, 'relatorios/grafico_eficiencia.html', {
-        'dados_dispersao': json.dumps(dados_dispersao),
-        'analise_periodos': analise_periodos,
-        'componentes': Componente.objects.filter(ativo=True)
-    })
-
-
-
+    return JsonResponse({'success': True, 'dados': dados})
 
 @login_required
-def exportar_relatorio_oee(request):
-    """Exporta relatório OEE para CSV"""
-    if request.user.tipo_usuario not in ['admin', 'analista']:
-        return HttpResponse('Acesso negado', status=403)
+def api_paradas_categoria(request):
+    '''API para gráfico de paradas por categoria'''
+    periodo = int(request.GET.get('periodo', 7))
     
-    response = HttpResponse(content_type='text/csv')
-    response['Content-Disposition'] = 'attachment; filename="relatorio_oee.csv"'
-    
-    writer = csv.writer(response)
-    writer.writerow(['Data', 'Soldador', 'Módulo', 'Utilização', 'Eficiência', 'Qualidade', 'OEE'])
-    
-    # Últimos 30 dias
+    data_inicio = timezone.now().date() - timedelta(days=periodo-1)
     data_fim = timezone.now().date()
-    data_inicio = data_fim - timedelta(days=30)
     
-    data_atual = data_inicio
-    while data_atual <= data_fim:
-        soldadores = Soldador.objects.filter(ativo=True)
-        for soldador in soldadores:
-            oee = calcular_oee_periodo(data_atual, data_atual, soldador.id)
-            if oee['oee'] > 0:
-                writer.writerow([
-                    data_atual.strftime('%d/%m/%Y'),
-                    soldador.usuario.nome_completo,
-                    'Todos',
-                    oee['utilizacao'],
-                    oee['eficiencia'],
-                    oee['qualidade'],
-                    oee['oee']
-                ])
-        data_atual += timedelta(days=1)
+    paradas = Parada.objects.filter(
+        inicio__date__gte=data_inicio,
+        inicio__date__lte=data_fim,
+        fim__isnull=False
+    ).values('tipo_parada__categoria').annotate(
+        total_tempo=Sum('duracao_minutos'),
+        total_ocorrencias=Count('id')
+    )
     
-    return response
+    dados = {
+        'categorias': [],
+        'tempos': [],
+        'ocorrencias': []
+    }
+    
+    for parada in paradas:
+        dados['categorias'].append(parada['tipo_parada__categoria'].title())
+        dados['tempos'].append(round((parada['total_tempo'] or 0) / 60, 2))  # Converter para horas
+        dados['ocorrencias'].append(parada['total_ocorrencias'])
+    
+    return JsonResponse({'success': True, 'dados': dados})

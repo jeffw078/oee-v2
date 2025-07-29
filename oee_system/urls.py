@@ -20,6 +20,7 @@ urlpatterns = [
     path('soldagem/', include('soldagem.urls')),
     path('qualidade/', include('qualidade.urls')),
     path('core/', include('core.urls')),
+    
 ]
 
 # Servir arquivos estáticos e media em desenvolvimento

@@ -1,0 +1,122 @@
+/* arquivo: static/css/offline-styles.css (NOVO) */
+
+/* Notificações */
+.notificacao {
+    position: fixed;
+    top: 80px;
+    right: 20px;
+    min-width: 300px;
+    z-index: 10000;
+    animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+.notificacao-conteudo {
+    padding: 15px 20px;
+    border-radius: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+.notificacao-success .notificacao-conteudo {
+    background: #28a745;
+    color: white;
+}
+
+.notificacao-warning .notificacao-conteudo {
+    background: #ffc107;
+    color: #333;
+}
+
+.notificacao-error .notificacao-conteudo {
+    background: #dc3545;
+    color: white;
+}
+
+.notificacao button {
+    background: none;
+    border: none;
+    color: inherit;
+    font-size: 20px;
+    cursor: pointer;
+    margin-left: 15px;
+}
+
+/* Modo offline overlay */
+.offline-overlay {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: #ff9800;
+    color: white;
+    padding: 10px;
+    text-align: center;
+    font-weight: 500;
+    z-index: 9998;
+    display: none;
+}
+
+body.offline .offline-overlay {
+    display: block;
+}
+
+/* Indicador de sincronização */
+.sync-indicator {
+    position: fixed;
+    bottom: 20px;
+    left: 20px;
+    background: rgba(0,0,0,0.8);
+    color: white;
+    padding: 10px 20px;
+    border-radius: 25px;
+    display: none;
+    align-items: center;
+    gap: 10px;
+}
+
+.sync-indicator.active {
+    display: flex;
+}
+
+.sync-spinner {
+    width: 20px;
+    height: 20px;
+    border: 2px solid #fff;
+    border-top-color: transparent;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* Badge de itens offline */
+.offline-badge {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    background: #ff5722;
+    color: white;
+    border-radius: 50%;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: bold;
+}

@@ -317,5 +317,40 @@
     </script>
     
     {% block extra_js %}{% endblock %}
+
+
+    <!-- Adicionar no arquivo: templates/base.html antes do </body> -->
+
+<!-- Scripts de funcionalidade offline -->
+<script src="{% static 'js/offline-manager.js' %}"></script>
+<link rel="stylesheet" href="{% static 'css/offline-styles.css' %}">
+
+<!-- Overlay de modo offline -->
+<div class="offline-overlay">
+    ⚠️ Modo Offline - Os dados serão sincronizados quando a conexão retornar
+</div>
+
+<!-- Indicador de sincronização -->
+<div class="sync-indicator" id="syncIndicator">
+    <div class="sync-spinner"></div>
+    <span>Sincronizando dados...</span>
+</div>
+
+<script>
+// Detectar status offline/online
+window.addEventListener('load', () => {
+    if (!navigator.onLine) {
+        document.body.classList.add('offline');
+    }
+});
+
+window.addEventListener('online', () => {
+    document.body.classList.remove('offline');
+});
+
+window.addEventListener('offline', () => {
+    document.body.classList.add('offline');
+});
+</script>
 </body>
 </html>
